@@ -19,6 +19,26 @@ if (! defined('ABSPATH')) {
 	exit; // Exit if accessed directly.
 }
 
+// Polyfills for servers without the mbstring extension.
+if (! function_exists('mb_strlen')) {
+	function mb_strlen($str, $encoding = null)
+	{
+		return strlen($str);
+	}
+}
+if (! function_exists('mb_substr')) {
+	function mb_substr($str, $start, $length = null, $encoding = null)
+	{
+		return null === $length ? substr($str, $start) : substr($str, $start, $length);
+	}
+}
+if (! function_exists('mb_strpos')) {
+	function mb_strpos($haystack, $needle, $offset = 0, $encoding = null)
+	{
+		return strpos($haystack, $needle, $offset);
+	}
+}
+
 // Define plugin version.
 define('ABCC_VERSION', '3.8.0');
 
