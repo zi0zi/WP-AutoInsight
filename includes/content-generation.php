@@ -267,6 +267,124 @@ function abcc_generate_content($api_key, $prompt, $service, $char_limit)
 }
 
 /**
+ * Sanitize an AI-generated title by stripping conversational preamble and formatting.
+ *
+ * Many AI models prepend polite phrases like "好的，这里为您提供…" or
+ * "当然，以下是…" before the actual title. This function scans the
+ * response lines and returns the first line that looks like a real title.
+ *
+ * @since 3.8.1
+ * @param array|string $result AI response (array of lines or raw string).
+ * @return string Cleaned title.
+ */
+function abcc_sanitize_ai_title($result)
+{
+	$lines = is_array($result) ? $result : explode("\n", $result);
+
+	// Common AI preamble patterns (Chinese).
+	$preamble_patterns = array(
+		'好的',
+		'当然',
+		'以下是',
+		'这里为您',
+		'这里是',
+		'为您提供',
+		'为您生成',
+		'针对您',
+		'围绕您',
+		'根据您',
+		'让我为您',
+		'没问题',
+		'很高兴',
+		'希望这',
+		'以下标题',
+		'以下几个',
+		'供您参考',
+		'供您选择',
+		'生成的标题',
+		'生成了',
+		'建议的标题',
+	);
+
+	// Also match common English preamble.
+	$preamble_patterns_en = array(
+		'Sure',
+		'Here is',
+		'Here are',
+		'Here\'s',
+		'Of course',
+		'Certainly',
+		'I\'ve generated',
+		'I have generated',
+	);
+
+	$best_title = '';
+
+	foreach ($lines as $line) {
+		$line = trim($line);
+
+		// Skip empty lines.
+		if ('' === $line) {
+			continue;
+		}
+
+		// Check if this line is AI preamble.
+		$is_preamble = false;
+		foreach ($preamble_patterns as $pattern) {
+			if (false !== mb_strpos($line, $pattern)) {
+				$is_preamble = true;
+				break;
+			}
+		}
+
+		if (! $is_preamble) {
+			foreach ($preamble_patterns_en as $pattern) {
+				if (0 === stripos($line, $pattern)) {
+					$is_preamble = true;
+					break;
+				}
+			}
+		}
+
+		if ($is_preamble) {
+			continue;
+		}
+
+		// This looks like actual title content.
+		$best_title = $line;
+		break;
+	}
+
+	// Fallback: if every line was filtered, use the last non-empty line.
+	if ('' === $best_title) {
+		foreach (array_reverse($lines) as $line) {
+			$line = trim($line);
+			if ('' !== $line) {
+				$best_title = $line;
+				break;
+			}
+		}
+	}
+
+	// Strip surrounding quotes.
+	$best_title = trim($best_title, '"\'\'`「」『』《》');
+
+	// Strip markdown bold/italic.
+	$best_title = preg_replace('/\*{1,3}(.+?)\*{1,3}/', '$1', $best_title);
+
+	// Strip markdown heading markers.
+	$best_title = preg_replace('/^#{1,6}\s+/', '', $best_title);
+
+	// Strip numbered list prefix (e.g. "1. ", "1、").
+	$best_title = preg_replace('/^\d+[.、]\s*/', '', $best_title);
+
+	// Strip bullet list prefix.
+	$best_title = preg_replace('/^[-*•]\s+/', '', $best_title);
+
+	return trim($best_title);
+}
+
+/**
  * Generates a title for a post.
  *
  * @param string $api_key API key for the selected service
@@ -276,7 +394,8 @@ function abcc_generate_content($api_key, $prompt, $service, $char_limit)
  */
 function abcc_generate_title($api_key, $keywords, $prompt_select)
 {
-	$prompt = '为以下主题生成一个有吸引力的中文博客文章标题：' . implode(', ', $keywords);
+	$prompt  = '为以下主题生成一个有吸引力的中文博客文章标题：' . implode(', ', $keywords) . "\n";
+	$prompt .= '重要：请只输出标题本身，不要包含任何解释、前缀、问候语、编号或其他多余内容。直接输出标题文字即可。';
 
 	// Use a small token limit for this call - 50 tokens should be plenty for a title
 	$result = abcc_generate_content($api_key, $prompt, $prompt_select, 50);
@@ -285,17 +404,7 @@ function abcc_generate_title($api_key, $keywords, $prompt_select)
 		throw new Exception('Failed to generate title');
 	}
 
-	// Take the first line as the title.
-	$title = trim($result[0]);
-
-	// Remove any quotes that might be around the title.
-	$title = trim($title, '"\'`');
-
-	// Strip markdown bold/italic and heading markers (Perplexity returns Markdown).
-	$title = preg_replace('/\*{1,3}(.+?)\*{1,3}/', '$1', $title);
-	$title = ltrim($title, '# ');
-
-	return $title;
+	return abcc_sanitize_ai_title($result);
 }
 
 /**
