@@ -77,6 +77,9 @@ function abcc_get_settings_schema()
 			'abcc_supported_audio_formats'    => array('default' => array('mp3', 'wav', 'm4a', 'webm')),
 			'abcc_transcription_language'     => array('default' => 'en'),
 			'abcc_content_sources'            => array('default' => array()),
+			'abcc_random_publish'             => array('default' => false),
+			'abcc_publish_time_start'         => array('default' => '08:00'),
+			'abcc_publish_time_end'           => array('default' => '22:00'),
 		),
 	);
 }

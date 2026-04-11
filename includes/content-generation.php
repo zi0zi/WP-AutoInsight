@@ -165,10 +165,13 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 		$format_content = abcc_create_blocks($content_array);
 		$post_content   = abcc_gutenberg_blocks($format_content);
 
+		$is_draft_first    = abcc_get_setting('abcc_draft_first', true);
+		$is_random_publish = abcc_get_setting('abcc_random_publish', false);
+
 		$post_data = array(
 			'post_title'    => $title,
 			'post_content'  => wp_kses_post($post_content),
-			'post_status'   => abcc_get_setting('abcc_draft_first', true) ? 'draft' : 'publish',
+			'post_status'   => ($is_draft_first || $is_random_publish) ? 'draft' : 'publish',
 			'post_author'   => get_current_user_id(),
 			'post_type'     => $post_type,
 			'post_category' => $category_id ? array($category_id) : get_option('openai_selected_categories', array()),
@@ -189,6 +192,11 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 
 		if (is_wp_error($post_id)) {
 			throw new Exception($post_id->get_error_message());
+		}
+
+		// Schedule random-time publishing if enabled (and not in review-first mode).
+		if (! $is_draft_first && $is_random_publish) {
+			abcc_schedule_random_publish($post_id);
 		}
 
 		if (abcc_get_setting('openai_generate_images', true)) {

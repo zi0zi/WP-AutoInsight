@@ -25,7 +25,11 @@ $sources = abcc_get_content_sources();
                     <div class="abcc-source-header">
                         <strong class="abcc-source-name-display"><?php echo esc_html($source['name'] ?: '未命名来源'); ?></strong>
                         <span class="abcc-source-type-badge abcc-type-<?php echo esc_attr($source['type']); ?>">
-                            <?php echo 'rss' === $source['type'] ? 'RSS' : esc_html__('网页', 'automated-blog-content-creator'); ?>
+                            <?php
+                            if ('rss' === $source['type']) echo 'RSS';
+                            elseif ('trending' === $source['type']) esc_html_e('热点新闻', 'automated-blog-content-creator');
+                            else esc_html_e('网页', 'automated-blog-content-creator');
+                            ?>
                         </span>
                         <span class="abcc-source-status <?php echo ! empty($source['enabled']) ? 'enabled' : 'disabled'; ?>">
                             <?php echo ! empty($source['enabled']) ? esc_html__('已启用', 'automated-blog-content-creator') : esc_html__('已禁用', 'automated-blog-content-creator'); ?>
@@ -45,6 +49,15 @@ $sources = abcc_get_content_sources();
                             <select class="abcc-source-type">
                                 <option value="rss" <?php selected($source['type'], 'rss'); ?>>RSS 订阅</option>
                                 <option value="webpage" <?php selected($source['type'], 'webpage'); ?>><?php esc_html_e('网页', 'automated-blog-content-creator'); ?></option>
+                                <option value="trending" <?php selected($source['type'], 'trending'); ?>><?php esc_html_e('热点新闻', 'automated-blog-content-creator'); ?></option>
+                            </select>
+                        </label>
+                        <label class="abcc-source-platform-label" style="<?php echo 'trending' === $source['type'] ? '' : 'display:none;'; ?>">
+                            <?php esc_html_e('热点平台', 'automated-blog-content-creator'); ?>
+                            <select class="abcc-source-platform">
+                                <option value="baidu" <?php selected($source['platform'] ?? 'baidu', 'baidu'); ?>><?php esc_html_e('百度热搜', 'automated-blog-content-creator'); ?></option>
+                                <option value="toutiao" <?php selected($source['platform'] ?? 'baidu', 'toutiao'); ?>><?php esc_html_e('今日头条', 'automated-blog-content-creator'); ?></option>
+                                <option value="zhihu" <?php selected($source['platform'] ?? 'baidu', 'zhihu'); ?>><?php esc_html_e('知乎热榜', 'automated-blog-content-creator'); ?></option>
                             </select>
                         </label>
                         <label>
@@ -95,6 +108,15 @@ $sources = abcc_get_content_sources();
                 <select class="abcc-source-type">
                     <option value="rss">RSS 订阅</option>
                     <option value="webpage"><?php esc_html_e('网页', 'automated-blog-content-creator'); ?></option>
+                    <option value="trending"><?php esc_html_e('热点新闻', 'automated-blog-content-creator'); ?></option>
+                </select>
+            </label>
+            <label class="abcc-source-platform-label" style="display:none;">
+                <?php esc_html_e('热点平台', 'automated-blog-content-creator'); ?>
+                <select class="abcc-source-platform">
+                    <option value="baidu"><?php esc_html_e('百度热搜', 'automated-blog-content-creator'); ?></option>
+                    <option value="toutiao"><?php esc_html_e('今日头条', 'automated-blog-content-creator'); ?></option>
+                    <option value="zhihu"><?php esc_html_e('知乎热榜', 'automated-blog-content-creator'); ?></option>
                 </select>
             </label>
             <label>
@@ -150,6 +172,11 @@ $sources = abcc_get_content_sources();
     .abcc-type-webpage {
         background: #d1ecf1;
         color: #0c5460;
+    }
+
+    .abcc-type-trending {
+        background: #f8d7da;
+        color: #721c24;
     }
 
     .abcc-source-status.enabled {
@@ -262,6 +289,7 @@ $sources = abcc_get_content_sources();
                     name: $item.find('.abcc-source-name').val(),
                     url: $item.find('.abcc-source-url').val(),
                     type: $item.find('.abcc-source-type').val(),
+                    platform: $item.find('.abcc-source-platform').val() || 'baidu',
                     category: $item.find('select[name^="abcc_source_category"]').val() || 0,
                     enabled: $item.find('.abcc-source-enabled').is(':checked') ? 1 : 0
                 });
@@ -297,7 +325,8 @@ $sources = abcc_get_content_sources();
                 action: 'abcc_fetch_source_preview',
                 nonce: nonce,
                 url: $item.find('.abcc-source-url').val(),
-                type: $item.find('.abcc-source-type').val()
+                type: $item.find('.abcc-source-type').val(),
+                platform: $item.find('.abcc-source-platform').val() || 'baidu'
             }, function(resp) {
                 $btn.prop('disabled', false).text('<?php echo esc_js(__('预览采集', 'automated-blog-content-creator')); ?>');
                 if (resp.success && resp.data.items) {
@@ -349,6 +378,20 @@ $sources = abcc_get_content_sources();
                 $btn.prop('disabled', false).text('<?php echo esc_js(__('立即采集并生成', 'automated-blog-content-creator')); ?>');
                 alert('网络错误');
             });
+        });
+
+        // Toggle URL / platform fields based on source type.
+        $list.on('change', '.abcc-source-type', function() {
+            var $item = $(this).closest('.abcc-source-item');
+            var isTrending = $(this).val() === 'trending';
+            $item.find('.abcc-source-url').closest('label').toggle(!isTrending);
+            $item.find('.abcc-source-platform-label').toggle(isTrending);
+            // Update badge.
+            var $badge = $item.find('.abcc-source-type-badge');
+            $badge.removeClass('abcc-type-rss abcc-type-webpage abcc-type-trending').addClass('abcc-type-' + $(this).val());
+            if ($(this).val() === 'rss') $badge.text('RSS');
+            else if ($(this).val() === 'trending') $badge.text('热点新闻');
+            else $badge.text('网页');
         });
     });
 </script>

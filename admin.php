@@ -176,6 +176,14 @@ function abcc_openai_text_settings_page()
 				abcc_update_setting('openai_generate_seo', $openai_generate_seo);
 				abcc_update_setting('abcc_draft_first', $abcc_draft_first);
 				abcc_update_setting('abcc_selected_post_types', $selected_post_types);
+
+				// Random publish settings.
+				$random_publish     = isset($_POST['abcc_random_publish']);
+				$publish_time_start = isset($_POST['abcc_publish_time_start']) ? sanitize_text_field(wp_unslash($_POST['abcc_publish_time_start'])) : '08:00';
+				$publish_time_end   = isset($_POST['abcc_publish_time_end']) ? sanitize_text_field(wp_unslash($_POST['abcc_publish_time_end'])) : '22:00';
+				abcc_update_setting('abcc_random_publish', $random_publish);
+				abcc_update_setting('abcc_publish_time_start', $publish_time_start);
+				abcc_update_setting('abcc_publish_time_end', $publish_time_end);
 				break;
 
 			case 'model-settings':

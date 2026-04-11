@@ -133,6 +133,110 @@ function abcc_fetch_webpage_content($url)
 }
 
 /**
+ * Fetch trending/hot topic items from various Chinese platforms.
+ *
+ * @since 3.9.0
+ * @param string $platform Platform identifier: baidu, toutiao, or zhihu.
+ * @param int    $limit    Max items to return.
+ * @return array|WP_Error Array of items or WP_Error on failure.
+ */
+function abcc_fetch_trending_items($platform = 'baidu', $limit = 10)
+{
+	$apis = array(
+		'baidu'   => 'https://top.baidu.com/api/board?platform=wise&tab=realtime',
+		'toutiao' => 'https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc',
+		'zhihu'   => 'https://www.zhihu.com/api/v3/feed/topstory/hot-lists/total?limit=' . $limit,
+	);
+
+	if (! isset($apis[$platform])) {
+		return new WP_Error('invalid_platform', __('无效的热点平台。', 'automated-blog-content-creator'));
+	}
+
+	$response = wp_remote_get(
+		$apis[$platform],
+		array(
+			'timeout'    => 30,
+			'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+			'headers'    => array(
+				'Accept'          => 'application/json, text/plain, */*',
+				'Accept-Language' => 'zh-CN,zh;q=0.9',
+			),
+		)
+	);
+
+	if (is_wp_error($response)) {
+		return $response;
+	}
+
+	$status = wp_remote_retrieve_response_code($response);
+	if ($status < 200 || $status >= 300) {
+		return new WP_Error('http_error', sprintf(__('热点 API 请求失败，状态码：%d', 'automated-blog-content-creator'), $status));
+	}
+
+	$body = wp_remote_retrieve_body($response);
+	$data = json_decode($body, true);
+
+	if (empty($data)) {
+		return new WP_Error('parse_error', __('热点数据解析失败。', 'automated-blog-content-creator'));
+	}
+
+	$items = array();
+
+	switch ($platform) {
+		case 'baidu':
+			$raw = $data['data']['cards'][0]['content'] ?? array();
+			foreach (array_slice($raw, 0, $limit) as $entry) {
+				$items[] = array(
+					'title'       => $entry['word'] ?? $entry['query'] ?? '',
+					'link'        => $entry['url'] ?? '',
+					'description' => $entry['desc'] ?? '',
+					'content'     => $entry['desc'] ?? '',
+					'date'        => current_time('Y-m-d H:i:s'),
+				);
+			}
+			break;
+
+		case 'toutiao':
+			$raw = $data['data'] ?? array();
+			foreach (array_slice($raw, 0, $limit) as $entry) {
+				$items[] = array(
+					'title'       => $entry['Title'] ?? '',
+					'link'        => $entry['Url'] ?? '',
+					'description' => $entry['Label'] ?? ($entry['Title'] ?? ''),
+					'content'     => $entry['Label'] ?? ($entry['Title'] ?? ''),
+					'date'        => current_time('Y-m-d H:i:s'),
+				);
+			}
+			break;
+
+		case 'zhihu':
+			$raw = $data['data'] ?? array();
+			foreach (array_slice($raw, 0, $limit) as $entry) {
+				$target  = $entry['target'] ?? array();
+				$items[] = array(
+					'title'       => $target['title'] ?? '',
+					'link'        => isset($target['id']) ? 'https://www.zhihu.com/question/' . $target['id'] : '',
+					'description' => $target['excerpt'] ?? '',
+					'content'     => $target['excerpt'] ?? '',
+					'date'        => current_time('Y-m-d H:i:s'),
+				);
+			}
+			break;
+	}
+
+	// Filter out empty titles.
+	$items = array_filter($items, function ($item) {
+		return ! empty($item['title']);
+	});
+
+	if (empty($items)) {
+		return new WP_Error('no_items', __('未获取到热点内容。', 'automated-blog-content-creator'));
+	}
+
+	return array_values($items);
+}
+
+/**
  * Fetch content from a source (RSS or webpage).
  *
  * @param array $source Source configuration.
@@ -142,6 +246,11 @@ function abcc_fetch_source_content($source)
 {
 	if ('rss' === $source['type']) {
 		return abcc_fetch_rss_items($source['url'], 5);
+	}
+
+	if ('trending' === $source['type']) {
+		$platform = $source['platform'] ?? 'baidu';
+		return abcc_fetch_trending_items($platform, 10);
 	}
 
 	// Webpage: wrap single result to match RSS array format.
@@ -275,10 +384,13 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	$format_content = abcc_create_blocks($content_array);
 	$post_content   = abcc_gutenberg_blocks($format_content);
 
+	$is_draft_first    = abcc_get_setting('abcc_draft_first', true);
+	$is_random_publish = abcc_get_setting('abcc_random_publish', false);
+
 	$post_data = array(
 		'post_title'    => $title,
 		'post_content'  => wp_kses_post($post_content),
-		'post_status'   => abcc_get_setting('abcc_draft_first', true) ? 'draft' : 'publish',
+		'post_status'   => ($is_draft_first || $is_random_publish) ? 'draft' : 'publish',
 		'post_author'   => get_current_user_id() ?: 1,
 		'post_type'     => 'post',
 		'post_category' => $category ? array($category) : array(),
@@ -310,6 +422,11 @@ function abcc_generate_post_from_source($source_index, $options = array())
 
 	if (is_wp_error($post_id)) {
 		return $post_id;
+	}
+
+	// Schedule random-time publishing if enabled (and not in review-first mode).
+	if (! $is_draft_first && $is_random_publish) {
+		abcc_schedule_random_publish($post_id);
 	}
 
 	// Generate featured image if enabled.
@@ -375,18 +492,27 @@ function abcc_ajax_save_sources()
 
 	if (is_array($raw_sources)) {
 		foreach ($raw_sources as $src) {
-			$url = isset($src['url']) ? esc_url_raw(trim($src['url'])) : '';
-			if (empty($url)) {
+			$url  = isset($src['url']) ? esc_url_raw(trim($src['url'])) : '';
+			$type = isset($src['type']) && in_array($src['type'], array('rss', 'webpage', 'trending'), true) ? $src['type'] : 'rss';
+
+			// URL is required for rss and webpage types, but not trending.
+			if (empty($url) && 'trending' !== $type) {
 				continue;
 			}
 
-			$sources[] = array(
+			$entry = array(
 				'name'     => isset($src['name']) ? sanitize_text_field($src['name']) : '',
 				'url'      => $url,
-				'type'     => isset($src['type']) && in_array($src['type'], array('rss', 'webpage'), true) ? $src['type'] : 'rss',
+				'type'     => $type,
 				'category' => isset($src['category']) ? absint($src['category']) : 0,
 				'enabled'  => isset($src['enabled']) ? (bool) $src['enabled'] : true,
 			);
+
+			if ('trending' === $type) {
+				$entry['platform'] = isset($src['platform']) && in_array($src['platform'], array('baidu', 'toutiao', 'zhihu'), true) ? $src['platform'] : 'baidu';
+			}
+
+			$sources[] = $entry;
 		}
 	}
 
@@ -406,17 +532,19 @@ function abcc_ajax_fetch_source_preview()
 		wp_send_json_error(array('message' => __('权限不足。', 'automated-blog-content-creator')));
 	}
 
-	$url  = isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '';
-	$type = isset($_POST['type']) ? sanitize_text_field(wp_unslash($_POST['type'])) : 'rss';
+	$url      = isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '';
+	$type     = isset($_POST['type']) ? sanitize_text_field(wp_unslash($_POST['type'])) : 'rss';
+	$platform = isset($_POST['platform']) ? sanitize_key(wp_unslash($_POST['platform'])) : 'baidu';
 
-	if (empty($url)) {
+	if (empty($url) && 'trending' !== $type) {
 		wp_send_json_error(array('message' => __('URL 不能为空。', 'automated-blog-content-creator')));
 	}
 
 	$source = array(
-		'name' => 'Preview',
-		'url'  => $url,
-		'type' => $type,
+		'name'     => 'Preview',
+		'url'      => $url,
+		'type'     => $type,
+		'platform' => $platform,
 	);
 
 	$items = abcc_fetch_source_content($source);

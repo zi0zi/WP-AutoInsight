@@ -195,3 +195,87 @@ add_action('update_option_openai_auto_create', 'abcc_schedule_openai_event');
 
 // Trigger the OpenAI post generation.
 add_action('abcc_openai_generate_post_hook', 'abcc_openai_generate_post_scheduled');
+
+/**
+ * Schedule a post to be published at a random time within the configured window.
+ *
+ * @since 3.9.0
+ * @param int $post_id The post ID to schedule for publishing.
+ * @return bool Whether the event was scheduled successfully.
+ */
+function abcc_schedule_random_publish($post_id)
+{
+	$start_time = abcc_get_setting('abcc_publish_time_start', '08:00');
+	$end_time   = abcc_get_setting('abcc_publish_time_end', '22:00');
+
+	$wp_timezone = wp_timezone();
+	$now         = new DateTimeImmutable('now', $wp_timezone);
+
+	// Parse start/end times for today.
+	list($start_h, $start_m) = array_map('intval', explode(':', $start_time));
+	list($end_h, $end_m)     = array_map('intval', explode(':', $end_time));
+
+	$today_start = $now->setTime($start_h, $start_m, 0);
+	$today_end   = $now->setTime($end_h, $end_m, 0);
+
+	// Handle cross-midnight ranges (e.g. 22:00 - 06:00).
+	if ($today_end <= $today_start) {
+		$today_end = $today_end->modify('+1 day');
+	}
+
+	// If we're past the window, shift to tomorrow.
+	if ($now > $today_end) {
+		$today_start = $today_start->modify('+1 day');
+		$today_end   = $today_end->modify('+1 day');
+	}
+
+	// If we're within the window, use now as the earliest time.
+	if ($now > $today_start && $now < $today_end) {
+		$today_start = $now;
+	}
+
+	// Generate random timestamp within the window.
+	$start_ts  = $today_start->getTimestamp();
+	$end_ts    = $today_end->getTimestamp();
+	$random_ts = wp_rand($start_ts, $end_ts);
+
+	// Store the scheduled time in post meta for display purposes.
+	$scheduled_dt = (new DateTimeImmutable('@' . $random_ts))->setTimezone($wp_timezone);
+	update_post_meta($post_id, '_abcc_scheduled_publish_at', $scheduled_dt->format('Y-m-d H:i:s'));
+
+	// Schedule the one-time cron event.
+	wp_schedule_single_event($random_ts, 'abcc_publish_scheduled_post', array($post_id));
+
+	return true;
+}
+
+/**
+ * Publish a post that was scheduled for random-time publishing.
+ *
+ * @since 3.9.0
+ * @param int $post_id The post ID to publish.
+ * @return void
+ */
+function abcc_do_publish_scheduled_post($post_id)
+{
+	$post_id = absint($post_id);
+	$post    = get_post($post_id);
+
+	if (! $post) {
+		return;
+	}
+
+	// Only publish if still a draft (user may have manually published/trashed it).
+	if ('draft' !== $post->post_status) {
+		return;
+	}
+
+	wp_publish_post($post_id);
+	delete_post_meta($post_id, '_abcc_scheduled_publish_at');
+
+	// Send notification if enabled.
+	if (true === abcc_get_setting('openai_email_notifications', false)) {
+		abcc_send_post_notification($post_id);
+	}
+}
+add_action('abcc_publish_scheduled_post', 'abcc_do_publish_scheduled_post');
