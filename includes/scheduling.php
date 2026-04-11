@@ -1,11 +1,12 @@
 <?php
+
 /**
  * Scheduling and automation functions.
  *
  * @package WP-AutoInsight
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
+if (! defined('ABSPATH')) {
 	exit; // Exit if accessed directly.
 }
 
@@ -14,19 +15,20 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @return array|bool An array with schedule details if the event is scheduled, false otherwise.
  */
-function abcc_get_openai_event_schedule() {
-	$timestamp = wp_next_scheduled( 'abcc_openai_generate_post_hook' );
+function abcc_get_openai_event_schedule()
+{
+	$timestamp = wp_next_scheduled('abcc_openai_generate_post_hook');
 
-	if ( false === $timestamp ) {
+	if (false === $timestamp) {
 		return false;
 	}
 
-	$schedule = wp_get_schedule( 'abcc_openai_generate_post_hook' );
+	$schedule = wp_get_schedule('abcc_openai_generate_post_hook');
 
 	return array(
 		'scheduled' => true,
 		'schedule'  => $schedule,
-		'next_run'  => date_i18n( 'l, F j \a\t g:i A', $timestamp ),
+		'next_run'  => date_i18n('l, F j \a\t g:i A', $timestamp),
 		'timestamp' => $timestamp,
 	);
 }
@@ -36,42 +38,76 @@ function abcc_get_openai_event_schedule() {
  *
  * @return bool|int Returns post ID on success, false if conditions aren't met or on failure
  */
-function abcc_openai_generate_post_scheduled() {
+function abcc_openai_generate_post_scheduled()
+{
 	try {
 		// Get required parameters.
-		$tone          = abcc_get_setting( 'openai_tone', 'default' );
-		$auto_create   = get_option( 'openai_auto_create', 'none' );
-		$char_limit    = abcc_get_setting( 'openai_char_limit', 200 );
-		$prompt_select = abcc_get_setting( 'prompt_select', 'gpt-4.1-mini-2025-04-14' );
+		$tone          = abcc_get_setting('openai_tone', 'default');
+		$auto_create   = get_option('openai_auto_create', 'none');
+		$char_limit    = abcc_get_setting('openai_char_limit', 200);
+		$prompt_select = abcc_get_setting('prompt_select', 'gpt-4.1-mini-2025-04-14');
 
-		if ( 'none' === $auto_create ) {
-			throw new Exception( 'Auto-create is disabled' );
+		if ('none' === $auto_create) {
+			throw new Exception('Auto-create is disabled');
 		}
 
-		$groups = get_option( 'abcc_keyword_groups', array() );
-		if ( empty( $groups ) ) {
-			throw new Exception( 'No keyword groups configured for scheduled post generation' );
+		// Check if source-based generation mode is configured.
+		$sources = abcc_get_content_sources();
+		$enabled_sources = array_filter($sources, function ($s) {
+			return ! empty($s['enabled']);
+		});
+
+		if (! empty($enabled_sources)) {
+			// Use source-based generation.
+			$source_keys  = array_keys($enabled_sources);
+			$last_src_idx = get_option('abcc_last_source_index', -1);
+			$next_src_key = 0;
+
+			foreach ($source_keys as $i => $key) {
+				if ($key > $last_src_idx) {
+					$next_src_key = $key;
+					break;
+				}
+				if ($i === count($source_keys) - 1) {
+					$next_src_key = $source_keys[0];
+				}
+			}
+
+			update_option('abcc_last_source_index', $next_src_key);
+
+			$post_id = abcc_generate_post_from_source($next_src_key);
+
+			if (is_wp_error($post_id)) {
+				throw new Exception($post_id->get_error_message());
+			}
+
+			return $post_id;
+		}
+
+		$groups = get_option('abcc_keyword_groups', array());
+		if (empty($groups)) {
+			throw new Exception('No keyword groups configured for scheduled post generation');
 		}
 
 		// Rotate through groups.
-		$last_index = get_option( 'abcc_last_group_index', -1 );
-		$next_index = ( $last_index + 1 ) % count( $groups );
-		update_option( 'abcc_last_group_index', $next_index );
+		$last_index = get_option('abcc_last_group_index', -1);
+		$next_index = ($last_index + 1) % count($groups);
+		update_option('abcc_last_group_index', $next_index);
 
-		$selected_group = $groups[ $next_index ];
+		$selected_group = $groups[$next_index];
 
-		if ( empty( $selected_group['keywords'] ) ) {
+		if (empty($selected_group['keywords'])) {
 			// Find first group with keywords as fallback.
-			foreach ( $groups as $group ) {
-				if ( ! empty( $group['keywords'] ) ) {
+			foreach ($groups as $group) {
+				if (! empty($group['keywords'])) {
 					$selected_group = $group;
 					break;
 				}
 			}
 		}
 
-		if ( empty( $selected_group['keywords'] ) ) {
-			throw new Exception( 'No keywords found in any configured group' );
+		if (empty($selected_group['keywords'])) {
+			throw new Exception('No keywords found in any configured group');
 		}
 
 		$keywords = (array) $selected_group['keywords'];
@@ -96,13 +132,12 @@ function abcc_openai_generate_post_scheduled() {
 			)
 		);
 
-		if ( is_wp_error( $job_id ) ) {
-			throw new Exception( $job_id->get_error_message() );
+		if (is_wp_error($job_id)) {
+			throw new Exception($job_id->get_error_message());
 		}
 
 		return $job_id;
-
-	} catch ( Exception $e ) {
+	} catch (Exception $e) {
 		return false;
 	}
 }
@@ -110,16 +145,17 @@ function abcc_openai_generate_post_scheduled() {
 /**
  * Schedule or unschedule the event based on the selected option.
  */
-function abcc_schedule_openai_event() {
-	$selected_option = get_option( 'openai_auto_create', 'none' );
+function abcc_schedule_openai_event()
+{
+	$selected_option = get_option('openai_auto_create', 'none');
 
 	// Unscheduling the event if it was scheduled previously.
-	wp_clear_scheduled_hook( 'abcc_openai_generate_post_hook' );
+	wp_clear_scheduled_hook('abcc_openai_generate_post_hook');
 
 	// Scheduling the event based on the selected option.
-	if ( 'none' !== $selected_option ) {
-		$schedule_interval = ( 'hourly' === $selected_option ) ? 'hourly' : ( ( 'weekly' === $selected_option ) ? 'weekly' : 'daily' );
-		wp_schedule_event( time(), $schedule_interval, 'abcc_openai_generate_post_hook' );
+	if ('none' !== $selected_option) {
+		$schedule_interval = ('hourly' === $selected_option) ? 'hourly' : (('weekly' === $selected_option) ? 'weekly' : 'daily');
+		wp_schedule_event(time(), $schedule_interval, 'abcc_openai_generate_post_hook');
 	}
 }
 
@@ -129,32 +165,33 @@ function abcc_schedule_openai_event() {
  * @param int $post_id The ID of the created post.
  * @return bool Whether the email was sent successfully.
  */
-function abcc_send_post_notification( $post_id ) {
-	$admin_email = get_option( 'admin_email' );
-	$post        = get_post( $post_id );
+function abcc_send_post_notification($post_id)
+{
+	$admin_email = get_option('admin_email');
+	$post        = get_post($post_id);
 
-	if ( ! $post ) {
+	if (! $post) {
 		return false;
 	}
 
 	$subject = sprintf(
 		/* translators: %s: Post title */
-		__( 'New AI Generated Post: %s', 'automated-blog-content-creator' ),
+		__('New AI Generated Post: %s', 'automated-blog-content-creator'),
 		$post->post_title
 	);
 
 	$message = sprintf(
 		/* translators: %1$s: Post title, %2$s: Edit post URL */
-		__( 'A new post "%1$s" has been created automatically.\n\nYou can edit it here: %2$s', 'automated-blog-content-creator' ),
+		__('A new post "%1$s" has been created automatically.\n\nYou can edit it here: %2$s', 'automated-blog-content-creator'),
 		$post->post_title,
-		get_edit_post_link( $post_id, '' )
+		get_edit_post_link($post_id, '')
 	);
 
-	return wp_mail( $admin_email, $subject, $message );
+	return wp_mail($admin_email, $subject, $message);
 }
 
 // Schedule or unschedule the event when the option is updated.
-add_action( 'update_option_openai_auto_create', 'abcc_schedule_openai_event' );
+add_action('update_option_openai_auto_create', 'abcc_schedule_openai_event');
 
 // Trigger the OpenAI post generation.
-add_action( 'abcc_openai_generate_post_hook', 'abcc_openai_generate_post_scheduled' );
+add_action('abcc_openai_generate_post_hook', 'abcc_openai_generate_post_scheduled');

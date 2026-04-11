@@ -1,0 +1,1368 @@
+# Chinese (Simplified) translation for WP-AutoInsight
+# Copyright (C) 2026 Paulo H. Alkmin
+# This file is distributed under the same license as the WP-AutoInsight plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: WP-AutoInsight 3.8.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/Private-Insight\n"
+"Last-Translator: WP-AutoInsight\n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-03-28T19:37:59+00:00\n"
+"PO-Revision-Date: 2026-04-11 02:12+0800\n"
+"X-Generator: WP-AutoInsight\n"
+"X-Domain: automated-blog-content-creator\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. Plugin Name of the plugin
+msgid "WP-AutoInsight"
+msgstr "WP-AutoInsight"
+
+#. Plugin URI of the plugin
+#. Author URI of the plugin
+msgid "https://phalkmin.me/"
+msgstr "https://phalkmin.me/"
+
+#. Description of the plugin
+msgid "Create blog posts automatically using the OpenAI and Gemini APIs!"
+msgstr "使用 OpenAI 和 Gemini API 自动创建博客文章！"
+
+#. Author of the plugin
+msgid "Paulo H. Alkmin"
+msgstr "Paulo H. Alkmin"
+
+msgid "Default"
+msgstr "默认"
+
+msgid "Settings saved successfully!"
+msgstr "设置已保存成功！"
+
+#. translators: %d: number of posts to generate
+msgid "Generate %d Posts"
+msgstr "生成 %d 篇文章"
+
+msgid "Copied"
+msgstr "已复制"
+
+msgid "Content Settings"
+msgstr "内容设置"
+
+msgid "Advanced Settings"
+msgstr "高级设置"
+
+msgid "AI Models"
+msgstr "AI 模型"
+
+msgid "Audio Transcription"
+msgstr "音频转写"
+
+msgid "About"
+msgstr "关于"
+
+msgid "The previously selected AI model is no longer available. A default model has been selected based on your available API keys."
+msgstr "之前选择的 AI 模型已不可用。已根据可用的 API 密钥自动选择了默认模型。"
+
+#. Translators: %1$s is the API name, %2$s is the error message.
+msgid "Error in %1$s API request: %2$s"
+msgstr "%1$s API 请求错误：%2$s"
+
+msgid "Create AI Post"
+msgstr "AI 创建文章"
+
+msgid "Create a new post using AI?"
+msgstr "使用 AI 创建新文章？"
+
+msgid "Queueing generation job\\u2026"
+msgstr "正在排队生成任务……"
+
+msgid "An error occurred"
+msgstr "发生错误"
+
+msgid "Network error occurred"
+msgstr "网络错误"
+
+msgid "Done! Redirecting\\u2026"
+msgstr "完成！正在跳转……"
+
+msgid "Generation failed."
+msgstr "生成失败。"
+
+msgid "Your Site, Your Rules. High-quality AI content without the SaaS markup."
+msgstr "你的网站，你做主。高质量的 AI 内容，无需 SaaS 订阅费。"
+
+#. translators: %s: version number.
+msgid "Version %s (Den-O)"
+msgstr "版本 %s (Den-O)"
+
+msgid "What's New in v3.7 (Den-O)"
+msgstr "v3.7 (Den-O) 更新内容"
+
+msgid "Background Jobs:"
+msgstr "后台任务："
+
+msgid "Manual, bulk, scheduled, and regenerate flows now queue immediately and run through WP-Cron in the background."
+msgstr "手动、批量、定时和重新生成操作现在会立即排队，并通过 WP-Cron 在后台运行。"
+
+msgid "Live Generation Log:"
+msgstr "实时生成日志："
+
+msgid "Track queued, running, succeeded, and failed jobs with source, runtime, and clear error reasons."
+msgstr "跟踪排队中、运行中、成功和失败的任务，包含来源、运行时间和详细错误原因。"
+
+msgid "Clearer Failures:"
+msgstr "更清晰的失败信息："
+
+msgid "Failed jobs now show the actual error message and include a direct report link for support."
+msgstr "失败的任务现在会显示实际错误消息，并包含直接反馈链接。"
+
+msgid "Still Your Workflow:"
+msgstr "保持你的工作流程："
+
+msgid "Existing draft-first generation, bulk tools, scheduling, and regenerate actions continue to work on top of the new job system."
+msgstr "现有的草稿优先生成、批量工具、定时计划和重新生成操作在新的任务系统上继续正常工作。"
+
+msgid "Our Philosophy"
+msgstr "我们的理念"
+
+msgid "WP-AutoInsight is built on the belief that you should own your tools and your data. Unlike SaaS platforms that charge high monthly fees and lock your content behind a subscription, this plugin runs on your own infrastructure and uses your own API keys at cost."
+msgstr "WP-AutoInsight 的理念是：你应该拥有自己的工具和数据。与收取高额月费、将内容锁在订阅背后的 SaaS 平台不同，这个插件运行在你自己的服务器上，使用你自己的 API 密钥，按量付费。"
+
+msgid "You pay only for what you use, directly to the AI providers, with no markup from us. Your site, your rules, your content."
+msgstr "你只需按用量直接向 AI 服务商付费，没有任何加价。你的网站，你的规则，你的内容。"
+
+msgid "Professional Services"
+msgstr "专业服务"
+
+msgid "Need help with content strategy or custom AI integrations?"
+msgstr "需要内容策略或自定义 AI 集成方面的帮助？"
+
+msgid "Work With Me"
+msgstr "与我合作"
+
+msgid "Resources"
+msgstr "资源"
+
+msgid "Support Forum"
+msgstr "支持论坛"
+
+msgid "Rate the Plugin"
+msgstr "为插件评分"
+
+msgid "Source Code"
+msgstr "源代码"
+
+#. translators: %s: developer name.
+msgid "Developed with passion by %s."
+msgstr "由 %s 热情开发。"
+
+msgid "API Configuration"
+msgstr "API 配置"
+
+msgid "Your OpenAI API key is already set in wp-config.php."
+msgstr "你的 OpenAI API 密钥已在 wp-config.php 中设置。"
+
+msgid "OpenAI: connected via WordPress AI Connectors."
+msgstr "OpenAI：已通过 WordPress AI 连接器连接。"
+
+msgid "Active"
+msgstr "已激活"
+
+msgid "This key is managed by WordPress. To change it, go to Settings &rarr; AI Connectors."
+msgstr "此密钥由 WordPress 管理。如需更改，请前往 设置 &rarr; AI 连接器。"
+
+msgid "OpenAI API key:"
+msgstr "OpenAI API 密钥："
+
+msgid "Get your key at platform.openai.com"
+msgstr "在 platform.openai.com 获取密钥"
+
+msgid "For extra security, add to wp-config.php using define('OPENAI_API', 'your-key');"
+msgstr "为了更高安全性，可在 wp-config.php 中添加 define('OPENAI_API', 'your-key');"
+
+msgid "Your Gemini API key is already set in wp-config.php."
+msgstr "你的 Gemini API 密钥已在 wp-config.php 中设置。"
+
+msgid "Google Gemini: connected via WordPress AI Connectors."
+msgstr "Google Gemini：已通过 WordPress AI 连接器连接。"
+
+msgid "Gemini API key:"
+msgstr "Gemini API 密钥："
+
+msgid "Get your key at aistudio.google.com"
+msgstr "在 aistudio.google.com 获取密钥"
+
+msgid "For extra security, add to wp-config.php using define('GEMINI_API', 'your-key');"
+msgstr "为了更高安全性，可在 wp-config.php 中添加 define('GEMINI_API', 'your-key');"
+
+msgid "Your Claude API key is already set in wp-config.php."
+msgstr "你的 Claude API 密钥已在 wp-config.php 中设置。"
+
+msgid "Claude (Anthropic): connected via WordPress AI Connectors."
+msgstr "Claude (Anthropic)：已通过 WordPress AI 连接器连接。"
+
+msgid "Claude API key:"
+msgstr "Claude API 密钥："
+
+msgid "Get your key at console.anthropic.com"
+msgstr "在 console.anthropic.com 获取密钥"
+
+msgid "For extra security, add to wp-config.php using define('CLAUDE_API', 'your-key');"
+msgstr "为了更高安全性，可在 wp-config.php 中添加 define('CLAUDE_API', 'your-key');"
+
+msgid "Perplexity API key:"
+msgstr "Perplexity API 密钥："
+
+msgid "Get your key at perplexity.ai/settings/api"
+msgstr "在 perplexity.ai/settings/api 获取密钥"
+
+msgid "For extra security, add to wp-config.php using define('PERPLEXITY_API', 'your-key');"
+msgstr "为了更高安全性，可在 wp-config.php 中添加 define('PERPLEXITY_API', 'your-key');"
+
+msgid "Your Perplexity API key is already set in wp-config.php."
+msgstr "你的 Perplexity API 密钥已在 wp-config.php 中设置。"
+
+msgid "Stability AI API key:"
+msgstr "Stability AI API 密钥："
+
+msgid "Get your key at platform.stability.ai"
+msgstr "在 platform.stability.ai 获取密钥"
+
+msgid "For extra security, add to wp-config.php using define('STABILITY_API', 'your-key');"
+msgstr "为了更高安全性，可在 wp-config.php 中添加 define('STABILITY_API', 'your-key');"
+
+msgid "Your Stability AI API key is already set in wp-config.php."
+msgstr "你的 Stability AI API 密钥已在 wp-config.php 中设置。"
+
+msgid "Perplexity Settings"
+msgstr "Perplexity 设置"
+
+msgid "Citation Style:"
+msgstr "引用样式："
+
+msgid "Inline hyperlinks"
+msgstr "行内超链接"
+
+msgid "References section at bottom"
+msgstr "底部参考文献"
+
+msgid "Both inline + references section"
+msgstr "行内 + 底部参考文献"
+
+msgid "How source citations from Perplexity appear in generated posts."
+msgstr "Perplexity 来源引用在生成文章中的显示方式。"
+
+msgid "Source Recency Filter:"
+msgstr "来源时效过滤："
+
+msgid "No filter (all time)"
+msgstr "不过滤（所有时间）"
+
+msgid "Last 24 hours"
+msgstr "最近 24 小时"
+
+msgid "Last week"
+msgstr "最近一周"
+
+msgid "Last month"
+msgstr "最近一个月"
+
+msgid "Last year"
+msgstr "最近一年"
+
+msgid "Limit Perplexity sources to recent content only."
+msgstr "限制 Perplexity 仅使用近期来源。"
+
+msgid "Image Generation"
+msgstr "图片生成"
+
+msgid "Generate Featured Images:"
+msgstr "生成特色图片："
+
+msgid "Automatically generate featured images for posts using AI"
+msgstr "使用 AI 为文章自动生成特色图片"
+
+msgid "OpenAI Image Size:"
+msgstr "OpenAI 图片尺寸："
+
+msgid "DALL-E 3 supported resolutions."
+msgstr "DALL-E 3 支持的分辨率。"
+
+msgid "HD quality costs more but produces better detail."
+msgstr "高清质量费用更高，但细节更好。"
+
+msgid "OpenAI Image Quality:"
+msgstr "OpenAI 图片质量："
+
+msgid "Standard"
+msgstr "标准"
+
+msgid "HD"
+msgstr "高清"
+
+msgid "Stability AI Resolution:"
+msgstr "Stability AI 分辨率："
+
+msgid "SDXL supported resolution presets."
+msgstr "SDXL 支持的分辨率预设。"
+
+msgid "Image Generation Service:"
+msgstr "图片生成服务："
+
+msgid "Automatic (based on text model)"
+msgstr "自动（根据文本模型）"
+
+msgid "Always use DALL-E"
+msgstr "始终使用 DALL-E"
+
+msgid "Always use Stability AI"
+msgstr "始终使用 Stability AI"
+
+msgid "Always use Gemini Nano Banana"
+msgstr "始终使用 Gemini Nano Banana"
+
+msgid "Choose how to handle image generation for different text models"
+msgstr "选择不同文本模型的图片生成方式"
+
+msgid "Gemini Image Model:"
+msgstr "Gemini 图片模型："
+
+msgid "Nano Banana (Gemini 2.5 Flash) - Fast & Efficient"
+msgstr "Nano Banana (Gemini 2.5 Flash) - 快速高效"
+
+msgid "Nano Banana Pro (Gemini 3 Pro) - Premium Quality"
+msgstr "Nano Banana Pro (Gemini 3 Pro) - 高级画质"
+
+msgid "Nano Banana Pro offers higher quality and text rendering capabilities"
+msgstr "Nano Banana Pro 提供更高质量的文字渲染能力"
+
+msgid "Gemini Image Size:"
+msgstr "Gemini 图片尺寸："
+
+msgid "1K - Standard Quality"
+msgstr "1K - 标准画质"
+
+msgid "2K - High Quality (Recommended)"
+msgstr "2K - 高清画质（推荐）"
+
+msgid "4K - Ultra High Quality"
+msgstr "4K - 超高清画质"
+
+msgid "Higher resolution images take longer to generate and use more API quota"
+msgstr "更高分辨率的图片生成时间更长，消耗更多 API 配额"
+
+msgid "Automation & Scheduling"
+msgstr "自动化与定时计划"
+
+msgid "Schedule post creation:"
+msgstr "定时创建文章："
+
+msgid "How often the plugin should automatically generate and publish a new post using your keyword groups."
+msgstr "插件自动使用关键词组生成并发布新文章的频率。"
+
+msgid "None"
+msgstr "不启用"
+
+msgid "Hourly"
+msgstr "每小时"
+
+msgid "Daily"
+msgstr "每天"
+
+msgid "Weekly"
+msgstr "每周"
+
+msgid "You can disable the automatic creation of posts or schedule as you wish"
+msgstr "你可以随时禁用自动创建文章或按需设置定时计划"
+
+msgid "Content Length"
+msgstr "内容长度"
+
+msgid "Higher values produce longer, more detailed content and use more API credits."
+msgstr "更高的值会生成更长、更详细的内容，同时消耗更多 API 额度。"
+
+msgid "The maximum number of tokens (words and characters) will be used by the AI during post generation. Range: 1-4096"
+msgstr "AI 生成文章时使用的最大 Token 数（词和字符数）。范围：1-4096"
+
+msgid "Enable Email Notifications:"
+msgstr "启用邮件通知："
+
+msgid "Receive email notifications when a new post is created."
+msgstr "新文章创建时接收邮件通知。"
+
+msgid "User Permissions"
+msgstr "用户权限"
+
+msgid "AI Prompting Capability"
+msgstr "AI 内容生成权限"
+
+msgid "You have permission to generate content."
+msgstr "你有权限生成内容。"
+
+msgid "You do not have permission to generate content."
+msgstr "你没有权限生成内容。"
+
+msgid "In WordPress 7.0+, permissions are controlled via the native \"prompt_ai\" capability. By default, Administrators have this capability."
+msgstr "在 WordPress 7.0+ 中，权限通过原生的 \"prompt_ai\" 能力控制。默认情况下，管理员拥有此权限。"
+
+msgid "Save Advanced Settings"
+msgstr "保存高级设置"
+
+msgid "Audio Transcription Settings"
+msgstr "音频转写设置"
+
+msgid "Configure audio transcription and automatic post creation from audio files."
+msgstr "配置音频转写和从音频文件自动创建文章。"
+
+msgid "Enable Audio Transcription"
+msgstr "启用音频转写"
+
+msgid "Allow transcribing audio files and converting them to blog posts using OpenAI Whisper"
+msgstr "允许使用 OpenAI Whisper 转写音频文件并转换为博客文章"
+
+msgid "Supported Audio Formats"
+msgstr "支持的音频格式"
+
+msgid "Select which audio formats to enable for transcription. OpenAI Whisper supports most common audio formats."
+msgstr "选择启用的转写音频格式。OpenAI Whisper 支持大多数常见音频格式。"
+
+msgid "Transcription Language"
+msgstr "转写语言"
+
+msgid "Select the primary language for transcription. Auto-detect will let OpenAI determine the language."
+msgstr "选择转写的主要语言。自动检测将让 OpenAI 自行判断语言。"
+
+msgid "Usage Information"
+msgstr "使用说明"
+
+msgid "How to use Audio Transcription:"
+msgstr "如何使用音频转写："
+
+msgid "Upload an audio file to your Media Library"
+msgstr "上传音频文件到媒体库"
+
+msgid "Go to the audio file's edit page"
+msgstr "进入音频文件的编辑页面"
+
+msgid "Click \"Transcribe & Create Post\" in the publish box"
+msgstr "在发布框中点击「转写并创建文章」"
+
+msgid "The AI will transcribe the audio and create a formatted blog post"
+msgstr "AI 将转写音频并创建格式化的博客文章"
+
+msgid "Note:"
+msgstr "注意："
+
+msgid "Audio files must be under 25MB (OpenAI Whisper limit). Longer files may take several minutes to process."
+msgstr "音频文件必须小于 25MB（OpenAI Whisper 限制）。较长的文件可能需要几分钟处理。"
+
+msgid "Save Audio Settings"
+msgstr "保存音频设置"
+
+#. Translators: %1$s is the human-readable time difference, %2$s is the next run date.
+msgid "Next post scheduled in %1$s — %2$s. %3$s"
+msgstr "下一篇文章将在 %1$s 后发布 — %2$s。%3$s"
+
+msgid "Change schedule →"
+msgstr "更改计划 →"
+
+msgid "There are no scheduled posts to be published."
+msgstr "目前没有待发布的定时文章。"
+
+msgid "Keyword Groups"
+msgstr "关键词组"
+
+msgid "Organize your keywords into groups with specific categories and templates."
+msgstr "将关键词按分类和模板分组管理。"
+
+msgid "Each keyword group can have its own category and content template. Scheduled generation will rotate through these groups."
+msgstr "每个关键词组可以设置独立的分类和内容模板。定时生成会在各组之间轮流使用。"
+
+msgid "Group Name"
+msgstr "分组名称"
+
+msgid "Remove Group"
+msgstr "删除分组"
+
+msgid "Remove"
+msgstr "删除"
+
+msgid "Keywords (one per line)"
+msgstr "关键词（每行一个）"
+
+msgid "Target Category"
+msgstr "目标分类"
+
+msgid "Content Template"
+msgstr "内容模板"
+
+msgid "Add Keyword Group"
+msgstr "添加关键词组"
+
+msgid "Content Templates"
+msgstr "内容模板"
+
+msgid "Define the structure and instructions for your AI-generated content."
+msgstr "定义 AI 生成内容的结构和指令。"
+
+msgid "Use placeholders to inject dynamic data into your prompts: {keywords}, {title}, {tone}, {site_name}, {category}."
+msgstr "使用占位符向 Prompt 中注入动态数据：{keywords}、{title}、{tone}、{site_name}、{category}。"
+
+msgid "System default — read only"
+msgstr "系统默认 — 只读"
+
+msgid "Prompt Pattern"
+msgstr "Prompt 模式"
+
+msgid "HTML structure rules (headings, paragraphs, tag closing) are enforced automatically on top of any template — including this one."
+msgstr "HTML 结构规则（标题、段落、标签闭合）会自动附加到任何模板上 —— 包括此模板。"
+
+msgid "Template Name"
+msgstr "模板名称"
+
+msgid "Remove Template"
+msgstr "删除模板"
+
+msgid "Available Placeholders:"
+msgstr "可用占位符："
+
+msgid "Add Content Template"
+msgstr "添加内容模板"
+
+msgid "Target Post Types"
+msgstr "目标文章类型"
+
+msgid "Select which post types should have the \"Create Post\" button"
+msgstr "选择哪些文章类型应显示「创建文章」按钮"
+
+msgid "Tone"
+msgstr "语气"
+
+msgid "Controls the writing style of your generated content."
+msgstr "控制生成内容的写作风格。"
+
+msgid "Professional & formal"
+msgstr "专业正式"
+
+msgid "Conversational & relaxed"
+msgstr "对话轻松"
+
+msgid "Warm & approachable"
+msgstr "温暖亲切"
+
+msgid "Custom (define your own)"
+msgstr "自定义（自行定义）"
+
+msgid "Enter custom tone"
+msgstr "输入自定义语气"
+
+msgid "Workflow Settings"
+msgstr "工作流设置"
+
+msgid "Always save as draft for review before publishing"
+msgstr "发布前始终保存为草稿以供审核"
+
+msgid "When enabled, new posts will be created as drafts. Recommended for quality control."
+msgstr "启用后，新文章将创建为草稿。建议启用以进行质量控制。"
+
+msgid "Bulk Generate"
+msgstr "批量生成"
+
+msgid "Create multiple posts at once from a list of keywords."
+msgstr "从关键词列表一次性创建多篇文章。"
+
+msgid "Example:\\nArtificial Intelligence\\nMachine Learning\\nData Science"
+msgstr "示例：\\n人工智能\\n机器学习\\n数据科学"
+
+msgid "Or upload a .txt file"
+msgstr "或上传 .txt 文件"
+
+msgid "Each line will trigger one separate post generation."
+msgstr "每行将触发一次独立的文章生成。"
+
+msgid "AI Model"
+msgstr "AI 模型"
+
+msgid "Create as draft (mandatory for bulk)"
+msgstr "创建为草稿（批量生成必须）"
+
+msgid "Generate 0 Posts"
+msgstr "生成 0 篇文章"
+
+msgid "Generation Progress"
+msgstr "生成进度"
+
+msgid "Background jobs may be delayed. WP-Cron appears disabled or queued jobs have not started yet. If this keeps happening, check your site cron configuration."
+msgstr "后台任务可能延迟。WP-Cron 似乎已禁用或排队任务尚未开始。如果持续出现此问题，请检查站点的 Cron 配置。"
+
+#. translators: %d: Group number.
+msgid "Group %d"
+msgstr "第 %d 组"
+
+msgid "Create post manually"
+msgstr "手动创建文章"
+
+msgid "Generation Log"
+msgstr "生成日志"
+
+msgid "Show:"
+msgstr "显示："
+
+msgid "All jobs"
+msgstr "所有任务"
+
+msgid "Queued"
+msgstr "排队中"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Failed"
+msgstr "失败"
+
+msgid "Succeeded"
+msgstr "成功"
+
+msgid "Auto-refresh"
+msgstr "自动刷新"
+
+msgid "Refresh now"
+msgstr "立即刷新"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Source"
+msgstr "来源"
+
+msgid "Model"
+msgstr "模型"
+
+msgid "Keywords Used"
+msgstr "使用的关键词"
+
+msgid "Template"
+msgstr "模板"
+
+msgid "Created"
+msgstr "创建时间"
+
+msgid "Runtime"
+msgstr "运行时间"
+
+msgid "Result"
+msgstr "结果"
+
+msgid "The latest jobs update automatically while generation runs in the background."
+msgstr "后台运行生成时，最新任务会自动更新。"
+
+msgid "Select the AI model for content generation."
+msgstr "选择用于内容生成的 AI 模型。"
+
+msgid "Higher-tier models produce richer, more accurate content but cost more per API call. Economy models are great for drafts; Premium for final-quality output."
+msgstr "更高级的模型产出更丰富、更准确的内容，但每次 API 调用费用更高。经济型模型适合草稿；高级模型适合最终质量输出。"
+
+msgid "Save Model Settings"
+msgstr "保存模型设置"
+
+msgid "Permission denied."
+msgstr "权限不足。"
+
+msgid "No keyword groups found. Please add at least one group in Content Settings."
+msgstr "未找到关键词组。请在内容设置中至少添加一个分组。"
+
+msgid "Invalid post type requested."
+msgstr "请求的文章类型无效。"
+
+msgid "This post type is not enabled for manual generation."
+msgstr "该文章类型未启用手动生成。"
+
+msgid "No keywords found in any group."
+msgstr "所有分组中均未找到关键词。"
+
+msgid "Generation job queued successfully."
+msgstr "生成任务已成功排队。"
+
+msgid "Security check failed"
+msgstr "安全检查失败"
+
+msgid "Invalid post ID"
+msgstr "无效的文章 ID"
+
+msgid "Post not found"
+msgstr "文章未找到"
+
+msgid "API key not configured"
+msgstr "API 密钥未配置"
+
+msgid "Failed to generate new content"
+msgstr "生成新内容失败"
+
+msgid "Post rewritten successfully!"
+msgstr "文章改写成功！"
+
+msgid "Unauthorized"
+msgstr "未授权"
+
+msgid "API key is empty"
+msgstr "API 密钥为空"
+
+msgid "Invalid provider"
+msgstr "无效的服务商"
+
+msgid "Verified just now"
+msgstr "刚刚验证通过"
+
+msgid "Connection failed"
+msgstr "连接失败"
+
+msgid "Empty keyword."
+msgstr "关键词为空。"
+
+msgid "Success"
+msgstr "成功"
+
+msgid "Generation parameters not found for this post."
+msgstr "未找到该文章的生成参数。"
+
+msgid "Invalid generation parameters."
+msgstr "无效的生成参数。"
+
+msgid "Regeneration job queued successfully!"
+msgstr "重新生成任务已成功排队！"
+
+msgid "Generation job not found."
+msgstr "未找到生成任务。"
+
+msgid "AI Transcription:"
+msgstr "AI 转写："
+
+msgid "Transcribe & Create Post"
+msgstr "转写并创建文章"
+
+msgid "Transcribe Only"
+msgstr "仅转写"
+
+msgid "Transcript:"
+msgstr "转写文本："
+
+msgid "Create Post from Transcript"
+msgstr "从转写文本创建文章"
+
+msgid "Permission denied"
+msgstr "权限不足"
+
+msgid "Invalid attachment ID"
+msgstr "无效的附件 ID"
+
+msgid "An OpenAI API key is required for audio transcription. Please add one in Advanced Settings."
+msgstr "音频转写需要 OpenAI API 密钥。请在高级设置中添加。"
+
+msgid "File not found"
+msgstr "文件未找到"
+
+#. translators: %s: File extension
+msgid "Unsupported file format: %s"
+msgstr "不支持的文件格式：%s"
+
+msgid "File too large. Maximum size is 25MB."
+msgstr "文件过大。最大允许 25MB。"
+
+msgid "Post created successfully from audio transcription!"
+msgstr "从音频转写成功创建文章！"
+
+msgid "Audio transcribed successfully!"
+msgstr "音频转写成功！"
+
+msgid "Missing required data"
+msgstr "缺少必要数据"
+
+msgid "Post created successfully from transcript!"
+msgstr "从转写文本成功创建文章！"
+
+#. translators: %s: cURL error message
+#. translators: %s: Error message
+msgid "Network error: %s"
+msgstr "网络错误：%s"
+
+#. translators: %1$d: HTTP status code, %2$s: Error message
+msgid "Transcription failed. Status code: %1$d. Error: %2$s"
+msgstr "转写失败。状态码：%1$d。错误：%2$s"
+
+msgid "Transcribing audio..."
+msgstr "正在转写音频……"
+
+msgid "Creating post..."
+msgstr "正在创建文章……"
+
+msgid "Generation Jobs"
+msgstr "生成任务"
+
+#. translators: %s: generation source.
+msgid "Generation Job: %s"
+msgstr "生成任务：%s"
+
+msgid "Invalid generation payload."
+msgstr "无效的生成数据。"
+
+msgid "API key not configured for the selected model."
+msgstr "所选模型的 API 密钥未配置。"
+
+msgid "Scheduled Post Generation Failed"
+msgstr "定时文章生成失败"
+
+#. translators: %s: Error message
+msgid "The scheduled post generation failed with error: %s"
+msgstr "定时文章生成失败，错误：%s"
+
+msgid "Manual"
+msgstr "手动"
+
+msgid "Scheduled"
+msgstr "定时"
+
+msgid "Bulk"
+msgstr "批量"
+
+msgid "Regenerate"
+msgstr "重新生成"
+
+msgid "No generation jobs found."
+msgstr "未找到生成任务。"
+
+#. translators: %s: runtime in seconds.
+msgid "%ss"
+msgstr "%s秒"
+
+msgid "Edit"
+msgstr "编辑"
+
+msgid "View"
+msgstr "查看"
+
+msgid "Copy error"
+msgstr "复制错误"
+
+msgid "WP-AutoInsight generation error"
+msgstr "WP-AutoInsight 生成错误"
+
+msgid "Report this error"
+msgstr "反馈此错误"
+
+msgid "Automated AI content generation for posts, SEO, images, and scheduling."
+msgstr "自动化 AI 内容生成，包括文章、SEO、图片和定时发布。"
+
+#. translators: %s: PHP version
+msgid "WP-AutoInsight requires PHP version 7.4 or higher. Your current PHP version is %s. Please upgrade your PHP version or contact your host for assistance."
+msgstr "WP-AutoInsight 需要 PHP 7.4 或更高版本。你当前的 PHP 版本是 %s。请升级 PHP 版本或联系主机服务商获取帮助。"
+
+#. translators: %s: WordPress version
+msgid "WP-AutoInsight requires WordPress version 6.8 or higher. Your current WordPress version is %s. Please upgrade WordPress to activate this plugin."
+msgstr "WP-AutoInsight 需要 WordPress 6.8 或更高版本。你当前的 WordPress 版本是 %s。请升级 WordPress 以激活此插件。"
+
+msgid "Sources"
+msgstr "来源"
+
+msgid "Invalid post or permission denied"
+msgstr "无效的文章或权限不足"
+
+msgid "Failed to generate infographic description"
+msgstr "生成信息图描述失败"
+
+msgid "No image generation service available"
+msgstr "没有可用的图片生成服务"
+
+msgid "Failed to generate infographic image"
+msgstr "生成信息图图片失败"
+
+msgid "Infographic created successfully!"
+msgstr "信息图创建成功！"
+
+msgid "AI Content Tools"
+msgstr "AI 内容工具"
+
+msgid "AI Infographic Tools"
+msgstr "AI 信息图工具"
+
+msgid "Rewrite with AI"
+msgstr "AI 改写"
+
+msgid "AI Social Excerpt:"
+msgstr "AI 社交摘要："
+
+msgid "Last Generation:"
+msgstr "上次生成："
+
+msgid "Model:"
+msgstr "模型："
+
+msgid "Template:"
+msgstr "模板："
+
+msgid "Keywords:"
+msgstr "关键词："
+
+msgid "Regenerate as New Draft"
+msgstr "重新生成为新草稿"
+
+msgid "Are you sure you want to rewrite this post? This will replace the current content."
+msgstr "确定要改写这篇文章吗？这将替换当前内容。"
+
+msgid "Rewriting..."
+msgstr "正在改写……"
+
+msgid "Analyzing content..."
+msgstr "正在分析内容……"
+
+msgid "Success! Reloading page..."
+msgstr "成功！正在重新加载页面……"
+
+msgid "Error: "
+msgstr "错误："
+
+msgid "Unknown error"
+msgstr "未知错误"
+
+msgid "Regenerate this post? A new draft will be created with the same parameters."
+msgstr "重新生成这篇文章？将使用相同参数创建新草稿。"
+
+msgid "Regenerating\\u2026"
+msgstr "正在重新生成……"
+
+msgid "Generating new draft\\u2026"
+msgstr "正在生成新草稿……"
+
+msgid "Done! Opening new draft\\u2026"
+msgstr "完成！正在打开新草稿……"
+
+msgid "An error occurred."
+msgstr "发生错误。"
+
+msgid "Network error occurred."
+msgstr "网络错误。"
+
+msgid "Save the post with content first to generate an infographic."
+msgstr "请先保存包含内容的文章，然后才能生成信息图。"
+
+msgid "Create Infographic"
+msgstr "创建信息图"
+
+msgid "Create an infographic for this post?"
+msgstr "为这篇文章创建信息图？"
+
+msgid "Creating..."
+msgstr "正在创建……"
+
+msgid "Generating infographic..."
+msgstr "正在生成信息图……"
+
+msgid "Success! "
+msgstr "成功！"
+
+msgid "Testing connection..."
+msgstr "正在测试连接……"
+
+msgid "Connection successful!"
+msgstr "连接成功！"
+
+msgid "Connection failed. Please check your API key."
+msgstr "连接失败。请检查你的 API 密钥。"
+
+msgid "Generating your first post..."
+msgstr "正在生成你的第一篇文章……"
+
+msgid "Welcome to WP-AutoInsight!"
+msgstr "欢迎使用 WP-AutoInsight！"
+
+#. translators: %s: Comma-separated list of connected AI providers.
+msgid "Connected via WordPress Connectors: %s"
+msgstr "已通过 WordPress 连接器连接：%s"
+
+msgid "Let's get you set up and creating content in just a few minutes."
+msgstr "让我们在几分钟内完成设置并开始创建内容。"
+
+msgid "What's your primary goal?"
+msgstr "你的主要目标是什么？"
+
+msgid "This helps us configure the perfect settings for your content."
+msgstr "这有助于我们为你的内容配置最佳设置。"
+
+#. translators: 1: tone, 2: content length
+msgid "Tone: %1$s • Length: %2$s tokens"
+msgstr "语气：%1$s • 长度：%2$s Tokens"
+
+msgid "Continue"
+msgstr "继续"
+
+msgid "Skip setup (for advanced users)"
+msgstr "跳过设置（适合高级用户）"
+
+msgid "Connect an AI Provider"
+msgstr "连接 AI 服务商"
+
+msgid "Choose one AI service to power your content generation."
+msgstr "选择一个 AI 服务来驱动你的内容生成。"
+
+msgid "AI provider already connected via WordPress Connectors!"
+msgstr "AI 服务商已通过 WordPress 连接器连接！"
+
+msgid "Use existing connection"
+msgstr "使用现有连接"
+
+msgid "Add a different key manually"
+msgstr "手动添加其他密钥"
+
+msgid "Tip: Configure your AI key once in WordPress Connectors"
+msgstr "提示：在 WordPress 连接器中一次性配置你的 AI 密钥"
+
+msgid "WordPress 7.0 lets you manage all AI provider keys centrally at Settings > Connectors. Any key you add there works automatically here."
+msgstr "WordPress 7.0 允许你在 设置 > 连接器 中集中管理所有 AI 服务商密钥。你在那里添加的任何密钥都会自动在此生效。"
+
+msgid "Open Connectors settings"
+msgstr "打开连接器设置"
+
+msgid "OpenAI"
+msgstr "OpenAI"
+
+msgid "GPT-4.1, o4-mini • Best for creative content"
+msgstr "GPT-4.1、o4-mini • 最适合创意内容"
+
+msgid "API key configured in wp-config.php - excellent security! 🔒"
+msgstr "API 密钥已在 wp-config.php 中配置 - 安全性极佳！🔒"
+
+msgid "Test Connection"
+msgstr "测试连接"
+
+msgid "sk-..."
+msgstr "sk-..."
+
+msgid "Test"
+msgstr "测试"
+
+msgid "How to get your OpenAI API key"
+msgstr "如何获取 OpenAI API 密钥"
+
+msgid "Visit"
+msgstr "访问"
+
+msgid "Sign up for an account or log in to your existing account"
+msgstr "注册新账号或登录已有账号"
+
+msgid "Click the \"Create new secret key\" button"
+msgstr "点击「创建新密钥」按钮"
+
+msgid "Give your key a name (e.g., \"WP-AutoInsight\")"
+msgstr "为密钥取个名字（例如 \"WP-AutoInsight\"）"
+
+msgid "Copy the API key (starts with \"sk-...\")"
+msgstr "复制 API 密钥（以 \"sk-...\" 开头）"
+
+msgid "Important:"
+msgstr "重要："
+
+msgid "You'll need to add billing information to your OpenAI account. New accounts usually get $5 in free credits."
+msgstr "你需要在 OpenAI 账号中添加付款信息。新账号通常会获得 $5 的免费额度。"
+
+msgid "Claude"
+msgstr "Claude"
+
+msgid "Claude 4.5 Sonnet • Great for analytical content"
+msgstr "Claude 4.5 Sonnet • 擅长分析性内容"
+
+msgid "sk-ant-api..."
+msgstr "sk-ant-api..."
+
+msgid "How to get your Claude API key"
+msgstr "如何获取 Claude API 密钥"
+
+msgid "Go to"
+msgstr "前往"
+
+msgid "Create an account or sign in"
+msgstr "创建账号或登录"
+
+msgid "Navigate to \"API Keys\" in the left sidebar"
+msgstr "在左侧边栏中找到「API 密钥」"
+
+msgid "Click \"Create Key\" button"
+msgstr "点击「创建密钥」按钮"
+
+msgid "Copy the API key (starts with \"sk-ant-api...\")"
+msgstr "复制 API 密钥（以 \"sk-ant-api...\" 开头）"
+
+msgid "Claude requires a paid account. New users get $5 in free credits after adding a payment method."
+msgstr "Claude 需要付费账号。新用户添加付款方式后可获得 $5 免费额度。"
+
+msgid "Google Gemini"
+msgstr "Google Gemini"
+
+msgid "Gemini 2.5 Flash • Excellent for factual content"
+msgstr "Gemini 2.5 Flash • 擅长事实性内容"
+
+msgid "AIza..."
+msgstr "AIza..."
+
+msgid "How to get your Gemini API key"
+msgstr "如何获取 Gemini API 密钥"
+
+msgid "Sign in with your Google account"
+msgstr "使用 Google 账号登录"
+
+msgid "Click \"Create API key\" button"
+msgstr "点击「创建 API 密钥」按钮"
+
+msgid "Choose \"Create API key in new project\" (recommended)"
+msgstr "选择「在新项目中创建 API 密钥」（推荐）"
+
+msgid "Copy the API key (starts with \"AIza...\")"
+msgstr "复制 API 密钥（以 \"AIza...\" 开头）"
+
+msgid "Great news:"
+msgstr "好消息："
+
+msgid "Gemini offers generous free usage limits - perfect for getting started!"
+msgstr "Gemini 提供慷慨的免费使用额度 - 非常适合入门！"
+
+msgid "Perplexity"
+msgstr "Perplexity"
+
+msgid "Sonar Pro - Web-grounded content with citations"
+msgstr "Sonar Pro - 基于网络的内容并附带引用"
+
+msgid "API key configured in wp-config.php - excellent security!"
+msgstr "API 密钥已在 wp-config.php 中配置 - 安全性极佳！"
+
+msgid "pplx-..."
+msgstr "pplx-..."
+
+msgid "How to get your Perplexity API key"
+msgstr "如何获取 Perplexity API 密钥"
+
+msgid "Sign up for an account or log in"
+msgstr "注册账号或登录"
+
+msgid "Navigate to the API section in Settings"
+msgstr "在设置中找到 API 部分"
+
+msgid "Generate a new API key"
+msgstr "生成新的 API 密钥"
+
+msgid "Copy the API key (starts with \"pplx-...\")"
+msgstr "复制 API 密钥（以 \"pplx-...\" 开头）"
+
+msgid "Perplexity API requires a paid plan. Content includes web citations automatically."
+msgstr "Perplexity API 需要付费计划。内容会自动包含网络引用。"
+
+msgid "Back"
+msgstr "返回"
+
+msgid "Generate Your First Post"
+msgstr "生成你的第一篇文章"
+
+msgid "Let's create your first AI-generated post to make sure everything is working perfectly."
+msgstr "让我们创建你的第一篇 AI 生成文章，确保一切正常运行。"
+
+msgid "Welcome Post"
+msgstr "欢迎文章"
+
+msgid "We'll create a \"Hello World\" style post to test your setup and show you how the plugin works."
+msgstr "我们将创建一篇 \"Hello World\" 风格的文章来测试设置并展示插件的工作方式。"
+
+msgid "AI-generated content"
+msgstr "AI 生成的内容"
+
+msgid "SEO-optimized"
+msgstr "SEO 优化"
+
+msgid "Featured image"
+msgstr "特色图片"
+
+msgid "Generate First Post"
+msgstr "生成第一篇文章"
+
+msgid "Congratulations! 🎉"
+msgstr "恭喜！🎉"
+
+msgid "WP-AutoInsight is now set up and ready to help you create amazing content."
+msgstr "WP-AutoInsight 已设置完成，准备好帮助你创建精彩内容。"
+
+msgid "Edit Your First Post"
+msgstr "编辑你的第一篇文章"
+
+msgid "Go to Settings"
+msgstr "前往设置"
+
+msgid "What's Next?"
+msgstr "接下来？"
+
+msgid "Customize your keywords and categories"
+msgstr "自定义关键词和分类"
+
+msgid "Set up automated scheduling"
+msgstr "设置自动定时计划"
+
+msgid "Try the audio transcription feature"
+msgstr "试试音频转写功能"
+
+msgid "Generate infographics for existing posts"
+msgstr "为现有文章生成信息图"
+
+msgid "Personal/Business Blog"
+msgstr "个人/商业博客"
+
+msgid "Create engaging blog posts for your audience"
+msgstr "为你的读者创建引人入胜的博客文章"
+
+msgid "Business/Corporate Content"
+msgstr "商业/企业内容"
+
+msgid "Professional content for business websites"
+msgstr "商业网站的专业内容"
+
+msgid "News/Information Site"
+msgstr "新闻/资讯站点"
+
+msgid "Quick, informative articles and updates"
+msgstr "快速、有价值的文章和资讯"
+
+msgid "Creative/Entertainment"
+msgstr "创意/娱乐"
+
+msgid "Fun, engaging content with personality"
+msgstr "有趣、有个性的互动内容"
+
+msgid "API key is required"
+msgstr "需要 API 密钥"
+
+msgid "Unexpected response format from OpenAI"
+msgstr "来自 OpenAI 的响应格式异常"
+
+#. translators: %s: Error message
+msgid "OpenAI connection failed: %s"
+msgstr "OpenAI 连接失败：%s"
+
+#. translators: 1: HTTP status code, 2: Error message
+msgid "Claude API error (%1$d): %2$s"
+msgstr "Claude API 错误（%1$d）：%2$s"
+
+msgid "Unexpected response format from Claude API"
+msgstr "来自 Claude API 的响应格式异常"
+
+#. translators: %s: Error message
+msgid "Claude connection failed: %s"
+msgstr "Claude 连接失败：%s"
+
+msgid "Gemini API returned empty response"
+msgstr "Gemini API 返回空响应"
+
+msgid "Invalid Gemini API key"
+msgstr "无效的 Gemini API 密钥"
+
+#. translators: %s: Error message
+msgid "Gemini API error: %s"
+msgstr "Gemini API 错误：%s"
+
+#. translators: %s: Error message
+msgid "Gemini connection failed: %s"
+msgstr "Gemini 连接失败：%s"
+
+msgid "🎉 Welcome to WP-AutoInsight! Your first post has been created and you're ready to go!"
+msgstr "🎉 欢迎使用 WP-AutoInsight！你的第一篇文章已创建完成，可以开始使用了！"
+
+#. translators: 1: HTTP status code, 2: Error message
+msgid "Perplexity API error (%1$d): %2$s"
+msgstr "Perplexity API 错误（%1$d）：%2$s"
+
+msgid "Unexpected response format from Perplexity API"
+msgstr "来自 Perplexity API 的响应格式异常"
+
+#. translators: %s: Error message
+msgid "Perplexity connection failed: %s"
+msgstr "Perplexity 连接失败：%s"
+
+#. translators: %s: Post title
+msgid "New AI Generated Post: %s"
+msgstr "新的 AI 生成文章：%s"
+
+#. translators: %1$s: Post title, %2$s: Edit post URL
+msgid "A new post \"%1$s\" has been created automatically.\\n\\nYou can edit it here: %2$s"
+msgstr "新文章「%1$s」已自动创建。\\n\\n你可以在此编辑：%2$s"
+
+#. translators: 1: previous version, 2: current version
+msgid "Settings migrated from v%1$s to v%2$s. Your API keys and keyword groups are intact."
+msgstr "设置已从 v%1$s 迁移到 v%2$s。你的 API 密钥和关键词组保持不变。"
+
+#: includes/content-sources.php
+msgid "Content Sources"
+msgstr "内容来源"
+
+msgid "Source Name"
+msgstr "来源名称"
+
+msgid "Source URL"
+msgstr "来源 URL"
+
+msgid "Source Type"
+msgstr "来源类型"
+
+msgid "RSS Feed"
+msgstr "RSS 订阅"
+
+msgid "Web Page"
+msgstr "网页"
+
+msgid "Add Source"
+msgstr "添加来源"
+
+msgid "Remove Source"
+msgstr "删除来源"
+
+msgid "Fetch & Generate"
+msgstr "采集并生成"
+
+msgid "Preview"
+msgstr "预览"
+
+msgid "Fetching content..."
+msgstr "正在采集内容……"
+
+msgid "Generating article from source..."
+msgstr "正在从来源生成文章……"
+
+msgid "Article generated successfully from source!"
+msgstr "从来源生成文章成功！"
+
+msgid "No content fetched from source."
+msgstr "未从来源采集到内容。"
+
+msgid "Failed to fetch content from source."
+msgstr "从来源采集内容失败。"
+
+msgid "Source saved successfully."
+msgstr "来源保存成功。"
+
+msgid "Manage your RSS feeds and websites for content sourcing."
+msgstr "管理你的 RSS 订阅和网站内容来源。"
+
+msgid "Save Sources"
+msgstr "保存来源"
+
+msgid "Enabled"
+msgstr "已启用"
+
+msgid "Disabled"
+msgstr "已禁用"
+
+msgid "Source-based"
+msgstr "基于来源"
+
+msgid "Generation Mode"
+msgstr "生成模式"
+
+msgid "Keywords-based (default)"
+msgstr "基于关键词（默认）"
+
+msgid "Source-based (RSS/Website)"
+msgstr "基于来源（RSS/网站）"
