@@ -67,6 +67,7 @@ function abcc_get_settings_schema()
 			'openai_char_limit'               => array('default' => 200),
 			'openai_email_notifications'      => array('default' => false),
 			'openai_generate_images'          => array('default' => true),
+			'abcc_image_source'               => array('default' => 'ai'),
 			'preferred_image_service'         => array('default' => 'auto'),
 			'abcc_gemini_image_model'         => array('default' => 'gemini-2.5-flash-image'),
 			'abcc_gemini_image_size'          => array('default' => '2K'),

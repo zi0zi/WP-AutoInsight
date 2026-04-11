@@ -432,10 +432,17 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	// Generate featured image if enabled.
 	if (abcc_get_setting('openai_generate_images', true)) {
 		try {
-			$image_url = abcc_generate_featured_image($model, array($title), array());
-			if ($image_url) {
+			$image_result = abcc_generate_featured_image($model, array($title), array());
+			if ($image_result) {
 				$alt_text = abcc_build_featured_image_alt_text($title, '');
-				abcc_set_featured_image($post_id, $image_url, $alt_text);
+
+				if (is_array($image_result) && ! empty($image_result['attachment_id'])) {
+					// Media library image — set thumbnail directly.
+					set_post_thumbnail($post_id, $image_result['attachment_id']);
+				} elseif (is_string($image_result)) {
+					// AI-generated URL — download and attach.
+					abcc_set_featured_image($post_id, $image_result, $alt_text);
+				}
 			}
 		} catch (Exception $e) {
 			// Image failures should not abort text generation.

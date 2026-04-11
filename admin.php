@@ -224,6 +224,8 @@ function abcc_openai_text_settings_page()
 				abcc_update_setting('openai_char_limit', $char_limit);
 				abcc_update_setting('openai_email_notifications', $openai_email_notifications);
 				abcc_update_setting('openai_generate_images', $openai_generate_images);
+				$image_source = isset($_POST['abcc_image_source']) && in_array($_POST['abcc_image_source'], array('ai', 'media_library', 'ai_with_fallback'), true) ? sanitize_text_field(wp_unslash($_POST['abcc_image_source'])) : 'ai';
+				abcc_update_setting('abcc_image_source', $image_source);
 				abcc_update_setting('preferred_image_service', $preferred_image_service);
 				abcc_update_setting('abcc_gemini_image_model', $gemini_image_model);
 				abcc_update_setting('abcc_gemini_image_size', $gemini_image_size);

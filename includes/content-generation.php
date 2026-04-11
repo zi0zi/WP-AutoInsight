@@ -213,12 +213,18 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 					}
 				}
 
-				$image_url = abcc_generate_featured_image($prompt_select, $keywords, $category_names);
+				$image_result = abcc_generate_featured_image($prompt_select, $keywords, $category_names);
 
-				if ($image_url) {
+				if ($image_result) {
 					$alt_text = abcc_build_featured_image_alt_text($title, $seo_data['primary_keyword'] ?? '');
 
-					abcc_set_featured_image($post_id, $image_url, $alt_text);
+					if (is_array($image_result) && ! empty($image_result['attachment_id'])) {
+						// Media library image — set thumbnail directly.
+						set_post_thumbnail($post_id, $image_result['attachment_id']);
+					} elseif (is_string($image_result)) {
+						// AI-generated URL — download and attach.
+						abcc_set_featured_image($post_id, $image_result, $alt_text);
+					}
 				}
 			} catch (Exception $e) {
 				// Image failures should not abort successful text generation.
