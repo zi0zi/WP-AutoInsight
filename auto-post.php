@@ -2,11 +2,8 @@
 
 /**
  * Plugin Name:       WP-AutoInsight
- * Plugin URI:        https://phalkmin.me/
- * Description:       Create blog posts automatically using the OpenAI and Gemini APIs!
- * Version:           3.8.0
- * Author:            Paulo H. Alkmin
- * Author URI:        https://phalkmin.me/
+ * Description:       使用 OpenAI / Gemini / Claude / Perplexity 自动生成中文博客文章，支持热点采集、品牌推广、内容查重与质量闸门。
+ * Version:           4.1.0
  * Text Domain:       automated-blog-content-creator
  * Domain Path:       /languages
  * Requires at least: 6.8
@@ -40,7 +37,7 @@ if (! function_exists('mb_strpos')) {
 }
 
 // Define plugin version.
-define('ABCC_VERSION', '3.8.0');
+define('ABCC_VERSION', '4.1.0');
 
 // Format requirements appended to every AI content generation prompt.
 // Defined here so they are enforced regardless of which template is active.
@@ -61,6 +58,8 @@ require_once __DIR__ . '/includes/api-keys.php';
 require_once __DIR__ . '/includes/blocks.php';
 require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/images.php';
+require_once __DIR__ . '/includes/brand-kit.php';
+require_once __DIR__ . '/includes/content-quality.php';
 require_once __DIR__ . '/includes/content-generation.php';
 require_once __DIR__ . '/includes/scheduling.php';
 require_once __DIR__ . '/includes/ajax-handlers.php';
@@ -123,3 +122,62 @@ function abcc_init()
 
 // Start the plugin.
 abcc_init();
+
+/**
+ * 阻断上游更新检查 —— 本插件是独立分叉，不与任何上游仓库同步版本。
+ *
+ * WordPress 在对比 wp.org 插件库或其他来源时，会把当前激活插件的 slug
+ * 发送出去换取更新信息。这里强制把本插件从 update_plugins transient
+ * 的 response 与 no_update 中移除，让"有新版本可用"提示不会再出现。
+ *
+ * @since 4.1.0
+ */
+add_filter(
+	'site_transient_update_plugins',
+	function ($value) {
+		if (! is_object($value)) {
+			return $value;
+		}
+		$plugin_file = plugin_basename(__FILE__);
+		if (isset($value->response) && isset($value->response[$plugin_file])) {
+			unset($value->response[$plugin_file]);
+		}
+		if (isset($value->no_update) && isset($value->no_update[$plugin_file])) {
+			unset($value->no_update[$plugin_file]);
+		}
+		return $value;
+	},
+	20
+);
+
+/**
+ * 不把本插件的信息提交给 api.wordpress.org 的 plugins 更新接口。
+ *
+ * @since 4.1.0
+ */
+add_filter(
+	'http_request_args',
+	function ($args, $url) {
+		if (false === strpos($url, '//api.wordpress.org/plugins/update-check/')) {
+			return $args;
+		}
+		if (empty($args['body']['plugins'])) {
+			return $args;
+		}
+		$plugins = json_decode($args['body']['plugins'], true);
+		if (empty($plugins) || ! is_array($plugins)) {
+			return $args;
+		}
+		$plugin_file = plugin_basename(__FILE__);
+		if (isset($plugins['plugins'][$plugin_file])) {
+			unset($plugins['plugins'][$plugin_file]);
+		}
+		if (isset($plugins['active']) && is_array($plugins['active'])) {
+			$plugins['active'] = array_values(array_diff($plugins['active'], array($plugin_file)));
+		}
+		$args['body']['plugins'] = wp_json_encode($plugins);
+		return $args;
+	},
+	10,
+	2
+);

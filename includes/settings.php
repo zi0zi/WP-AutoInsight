@@ -53,7 +53,7 @@ function abcc_get_settings_schema()
 			'custom_tone'                     => array('default' => ''),
 			'openai_tone'                     => array('default' => 'friendly'),
 			'openai_generate_seo'             => array('default' => true),
-			'abcc_draft_first'                => array('default' => true),
+			'abcc_draft_first'                => array('default' => false),
 			'abcc_selected_post_types'        => array('default' => array('post')),
 			'prompt_select'                   => array('default' => 'gpt-4.1-mini-2025-04-14'),
 			'openai_api_key'                  => array('default' => ''),
@@ -78,9 +78,33 @@ function abcc_get_settings_schema()
 			'abcc_supported_audio_formats'    => array('default' => array('mp3', 'wav', 'm4a', 'webm')),
 			'abcc_transcription_language'     => array('default' => 'en'),
 			'abcc_content_sources'            => array('default' => array()),
-			'abcc_random_publish'             => array('default' => false),
+			'abcc_random_publish'             => array('default' => true),
 			'abcc_publish_time_start'         => array('default' => '08:00'),
 			'abcc_publish_time_end'           => array('default' => '22:00'),
+			// Brand Kit — keywords/brand推广插入。
+			'abcc_brand_enabled'              => array('default' => false),
+			'abcc_brand_name'                 => array('default' => ''),
+			'abcc_brand_url'                  => array('default' => ''),
+			'abcc_brand_blurb'                => array('default' => ''),
+			'abcc_brand_keywords'             => array('default' => array()),
+			'abcc_brand_cta_text'             => array('default' => ''),
+			'abcc_brand_body_mentions'        => array('default' => 2),
+			'abcc_brand_link_rel'             => array('default' => 'dofollow'),
+			'abcc_brand_first_link_only'      => array('default' => true),
+			'abcc_brand_footer_card'          => array('default' => true),
+			// Content Quality — 查重 + 质量评分闸门。
+			'abcc_quality_enabled'            => array('default' => true),
+			'abcc_quality_min_score'          => array('default' => 60),
+			'abcc_quality_force_draft_below'  => array('default' => 60),
+			'abcc_quality_dedupe_enabled'     => array('default' => true),
+			'abcc_quality_dedupe_threshold'   => array('default' => 85),
+			'abcc_quality_dedupe_scope_days'  => array('default' => 180),
+			'abcc_quality_retry_once'         => array('default' => true),
+			// Content Sources — 缓存/去重/跨源合并。
+			'abcc_source_cache_ttl'           => array('default' => 1800),
+			'abcc_source_dedupe_enabled'      => array('default' => true),
+			'abcc_source_dedupe_history_size' => array('default' => 500),
+			'abcc_source_merge_platforms'     => array('default' => array('baidu', 'toutiao', 'zhihu')),
 		),
 	);
 }
@@ -271,6 +295,20 @@ function abcc_run_settings_migrations()
 		}
 
 		$installed_version = '3.8.0';
+		abcc_update_setting('abcc_version', $installed_version);
+	}
+
+	if (version_compare($installed_version, '4.1.0', '<')) {
+		// 老默认 abcc_draft_first=true（勾选自动发布仍进草稿）。升级后推为 false，让"自动发布"真的发布。
+		if (true === (bool) get_option('abcc_draft_first', true)) {
+			abcc_update_setting('abcc_draft_first', false);
+		}
+		// 老默认 abcc_random_publish=false。升级后推为 true，让发布时间更自然分散。
+		if (false === (bool) get_option('abcc_random_publish', false)) {
+			abcc_update_setting('abcc_random_publish', true);
+		}
+
+		$installed_version = '4.1.0';
 		abcc_update_setting('abcc_version', $installed_version);
 	}
 

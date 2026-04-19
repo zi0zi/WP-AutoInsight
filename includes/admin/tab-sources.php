@@ -58,6 +58,7 @@ $sources = abcc_get_content_sources();
                                 <option value="baidu" <?php selected($source['platform'] ?? 'baidu', 'baidu'); ?>><?php esc_html_e('百度热搜', 'automated-blog-content-creator'); ?></option>
                                 <option value="toutiao" <?php selected($source['platform'] ?? 'baidu', 'toutiao'); ?>><?php esc_html_e('今日头条', 'automated-blog-content-creator'); ?></option>
                                 <option value="zhihu" <?php selected($source['platform'] ?? 'baidu', 'zhihu'); ?>><?php esc_html_e('知乎热榜', 'automated-blog-content-creator'); ?></option>
+                                <option value="merged" <?php selected($source['platform'] ?? 'baidu', 'merged'); ?>><?php esc_html_e('跨源合并（多平台交叉热点）', 'automated-blog-content-creator'); ?></option>
                             </select>
                         </label>
                         <label>
@@ -117,6 +118,7 @@ $sources = abcc_get_content_sources();
                     <option value="baidu"><?php esc_html_e('百度热搜', 'automated-blog-content-creator'); ?></option>
                     <option value="toutiao"><?php esc_html_e('今日头条', 'automated-blog-content-creator'); ?></option>
                     <option value="zhihu"><?php esc_html_e('知乎热榜', 'automated-blog-content-creator'); ?></option>
+                    <option value="merged"><?php esc_html_e('跨源合并（多平台交叉热点）', 'automated-blog-content-creator'); ?></option>
                 </select>
             </label>
             <label>

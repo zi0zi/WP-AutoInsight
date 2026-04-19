@@ -233,6 +233,39 @@ function abcc_openai_text_settings_page()
 				abcc_update_setting('abcc_openai_image_quality', $openai_image_quality);
 				abcc_update_setting('abcc_stability_image_size', $stability_image_size);
 
+				// 质量闸门设置。
+				$quality_enabled           = isset($_POST['abcc_quality_enabled']);
+				$quality_min_score         = isset($_POST['abcc_quality_min_score']) ? max(0, min(100, absint($_POST['abcc_quality_min_score']))) : 60;
+				$quality_force_draft_below = isset($_POST['abcc_quality_force_draft_below']) ? max(0, min(100, absint($_POST['abcc_quality_force_draft_below']))) : 70;
+				$quality_dedupe_enabled    = isset($_POST['abcc_quality_dedupe_enabled']);
+				$quality_dedupe_threshold  = isset($_POST['abcc_quality_dedupe_threshold']) ? max(50, min(100, absint($_POST['abcc_quality_dedupe_threshold']))) : 85;
+				$quality_dedupe_scope_days = isset($_POST['abcc_quality_dedupe_scope_days']) ? max(7, min(3650, absint($_POST['abcc_quality_dedupe_scope_days']))) : 180;
+
+				abcc_update_setting('abcc_quality_enabled', $quality_enabled);
+				abcc_update_setting('abcc_quality_min_score', $quality_min_score);
+				abcc_update_setting('abcc_quality_force_draft_below', $quality_force_draft_below);
+				abcc_update_setting('abcc_quality_dedupe_enabled', $quality_dedupe_enabled);
+				abcc_update_setting('abcc_quality_dedupe_threshold', $quality_dedupe_threshold);
+				abcc_update_setting('abcc_quality_dedupe_scope_days', $quality_dedupe_scope_days);
+
+				// 热点采集优化设置。
+				$source_cache_ttl           = isset($_POST['abcc_source_cache_ttl']) ? max(60, min(86400, absint($_POST['abcc_source_cache_ttl']))) : 1800;
+				$source_dedupe_enabled      = isset($_POST['abcc_source_dedupe_enabled']);
+				$source_dedupe_history_size = isset($_POST['abcc_source_dedupe_history_size']) ? max(50, min(5000, absint($_POST['abcc_source_dedupe_history_size']))) : 500;
+				$allowed_platforms          = array('baidu', 'toutiao', 'zhihu');
+				$source_merge_platforms_raw = isset($_POST['abcc_source_merge_platforms']) && is_array($_POST['abcc_source_merge_platforms'])
+					? array_map('sanitize_text_field', wp_unslash($_POST['abcc_source_merge_platforms']))
+					: array();
+				$source_merge_platforms     = array_values(array_intersect($allowed_platforms, $source_merge_platforms_raw));
+				if (empty($source_merge_platforms)) {
+					$source_merge_platforms = $allowed_platforms;
+				}
+
+				abcc_update_setting('abcc_source_cache_ttl', $source_cache_ttl);
+				abcc_update_setting('abcc_source_dedupe_enabled', $source_dedupe_enabled);
+				abcc_update_setting('abcc_source_dedupe_history_size', $source_dedupe_history_size);
+				abcc_update_setting('abcc_source_merge_platforms', $source_merge_platforms);
+
 				abcc_schedule_openai_event();
 
 				// Trigger inline validation on save.
@@ -248,6 +281,32 @@ function abcc_openai_text_settings_page()
 				abcc_update_setting('abcc_enable_audio_transcription', $enable_audio);
 				abcc_update_setting('abcc_supported_audio_formats', $supported_formats);
 				abcc_update_setting('abcc_transcription_language', $transcription_language);
+				break;
+
+			case 'brand-kit':
+				$brand_enabled         = isset($_POST['abcc_brand_enabled']);
+				$brand_name            = isset($_POST['abcc_brand_name']) ? sanitize_text_field(wp_unslash($_POST['abcc_brand_name'])) : '';
+				$brand_url             = isset($_POST['abcc_brand_url']) ? esc_url_raw(wp_unslash($_POST['abcc_brand_url'])) : '';
+				$brand_blurb           = isset($_POST['abcc_brand_blurb']) ? sanitize_text_field(wp_unslash($_POST['abcc_brand_blurb'])) : '';
+				$brand_keywords_raw    = isset($_POST['abcc_brand_keywords']) ? sanitize_textarea_field(wp_unslash($_POST['abcc_brand_keywords'])) : '';
+				$brand_keywords        = array_values(array_filter(array_map('trim', explode("\n", $brand_keywords_raw))));
+				$brand_cta_text        = isset($_POST['abcc_brand_cta_text']) ? sanitize_text_field(wp_unslash($_POST['abcc_brand_cta_text'])) : '';
+				$brand_body_mentions   = isset($_POST['abcc_brand_body_mentions']) ? max(0, min(10, absint($_POST['abcc_brand_body_mentions']))) : 2;
+				$brand_link_rel_raw    = isset($_POST['abcc_brand_link_rel']) ? sanitize_text_field(wp_unslash($_POST['abcc_brand_link_rel'])) : 'dofollow';
+				$brand_link_rel        = in_array($brand_link_rel_raw, array('dofollow', 'nofollow', 'sponsored', 'ugc'), true) ? $brand_link_rel_raw : 'dofollow';
+				$brand_first_link_only = isset($_POST['abcc_brand_first_link_only']);
+				$brand_footer_card     = isset($_POST['abcc_brand_footer_card']);
+
+				abcc_update_setting('abcc_brand_enabled', $brand_enabled);
+				abcc_update_setting('abcc_brand_name', $brand_name);
+				abcc_update_setting('abcc_brand_url', $brand_url);
+				abcc_update_setting('abcc_brand_blurb', $brand_blurb);
+				abcc_update_setting('abcc_brand_keywords', $brand_keywords);
+				abcc_update_setting('abcc_brand_cta_text', $brand_cta_text);
+				abcc_update_setting('abcc_brand_body_mentions', $brand_body_mentions);
+				abcc_update_setting('abcc_brand_link_rel', $brand_link_rel);
+				abcc_update_setting('abcc_brand_first_link_only', $brand_first_link_only);
+				abcc_update_setting('abcc_brand_footer_card', $brand_footer_card);
 				break;
 		}
 
@@ -305,6 +364,9 @@ function abcc_openai_text_settings_page()
 			<a href="?page=automated-blog-content-creator-post&tab=content-sources" class="nav-tab <?php echo $current_tab === 'content-sources' ? 'nav-tab-active' : ''; ?>">
 				<?php esc_html_e('Content Sources', 'automated-blog-content-creator'); ?>
 			</a>
+			<a href="?page=automated-blog-content-creator-post&tab=brand-kit" class="nav-tab <?php echo $current_tab === 'brand-kit' ? 'nav-tab-active' : ''; ?>">
+				<?php esc_html_e('Brand Kit', 'automated-blog-content-creator'); ?>
+			</a>
 			<a href="?page=automated-blog-content-creator-post&tab=about" class="nav-tab <?php echo $current_tab === 'about' ? 'nav-tab-active' : ''; ?>">
 				<?php esc_html_e('About', 'automated-blog-content-creator'); ?>
 			</a>
@@ -323,6 +385,8 @@ function abcc_openai_text_settings_page()
 				<?php include plugin_dir_path(__FILE__) . 'includes/admin/tab-audio.php'; ?>
 			<?php elseif ($current_tab === 'content-sources') : ?>
 				<?php include plugin_dir_path(__FILE__) . 'includes/admin/tab-sources.php'; ?>
+			<?php elseif ($current_tab === 'brand-kit') : ?>
+				<?php include plugin_dir_path(__FILE__) . 'includes/admin/tab-brand.php'; ?>
 			<?php endif; ?>
 
 		</div>

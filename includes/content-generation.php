@@ -162,11 +162,29 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 			}
 		}
 
+		// Brand Kit — 注入品牌提及、内链锚文本、文末品牌卡片。
+		if (function_exists('abcc_apply_brand_to_content')) {
+			$content_array = abcc_apply_brand_to_content($content_array);
+		}
+
 		$format_content = abcc_create_blocks($content_array);
 		$post_content   = abcc_gutenberg_blocks($format_content);
 
 		$is_draft_first    = abcc_get_setting('abcc_draft_first', true);
 		$is_random_publish = abcc_get_setting('abcc_random_publish', false);
+
+		// 质量闸门：查重 + 评分，决定是否入库/是否强制草稿。
+		$quality_evaluation = null;
+		if (function_exists('abcc_quality_is_enabled') && abcc_quality_is_enabled()) {
+			$quality_evaluation = abcc_quality_evaluate($title, $post_content, (array) $keywords);
+			if (! $quality_evaluation['passed']) {
+				throw new Exception('质量闸门拦截：' . implode('；', $quality_evaluation['reasons']));
+			}
+			// 低分强制草稿，即便站点设置允许直发。
+			if ($quality_evaluation['force_draft']) {
+				$is_draft_first = true;
+			}
+		}
 
 		$post_data = array(
 			'post_title'    => $title,
@@ -192,6 +210,11 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 
 		if (is_wp_error($post_id)) {
 			throw new Exception($post_id->get_error_message());
+		}
+
+		// 入库成功后写入质量评分 meta（便于审计和列表页显示）。
+		if ($quality_evaluation && function_exists('abcc_quality_attach_meta')) {
+			abcc_quality_attach_meta($post_id, $quality_evaluation, $title, $post_content);
 		}
 
 		// Schedule random-time publishing if enabled (and not in review-first mode).
@@ -411,14 +434,59 @@ function abcc_generate_title($api_key, $keywords, $prompt_select)
 	$prompt  = '为以下主题生成一个有吸引力的中文博客文章标题：' . implode(', ', $keywords) . "\n";
 	$prompt .= '重要：请只输出标题本身，不要包含任何解释、前缀、问候语、编号或其他多余内容。直接输出标题文字即可。';
 
-	// Use a small token limit for this call - 50 tokens should be plenty for a title
-	$result = abcc_generate_content($api_key, $prompt, $prompt_select, 50);
-
-	if (false === $result || empty($result)) {
-		throw new Exception('Failed to generate title');
+	// 推理型模型（o-series / gpt-5 / sonar-reasoning / gemini thinking）会在 reasoning 阶段消耗
+	// 大量 token；50 token 极易在输出前就被吃光。Perplexity sonar 系列至少要 200 才能稳定返回。
+	$title_tokens = 200;
+	if (0 === strpos($prompt_select, 'sonar')) {
+		$title_tokens = 400;
 	}
 
-	return abcc_sanitize_ai_title($result);
+	$result = abcc_generate_content($api_key, $prompt, $prompt_select, $title_tokens);
+
+	if (false === $result || empty($result)) {
+		// Fallback：API 失败时用关键词拼一个可用标题，避免整篇生成中断。
+		$fallback = abcc_generate_title_fallback($keywords);
+		error_log(sprintf(
+			'[WP-AutoInsight] abcc_generate_title: empty/false result from model "%s"; falling back to keyword title "%s".',
+			$prompt_select,
+			$fallback
+		));
+		return $fallback;
+	}
+
+	$cleaned = abcc_sanitize_ai_title($result);
+
+	// 清洗后仍为空（极端：AI 只返回 preamble 就被截断）也走 fallback。
+	if ('' === $cleaned) {
+		$fallback = abcc_generate_title_fallback($keywords);
+		error_log(sprintf(
+			'[WP-AutoInsight] abcc_generate_title: sanitizer produced empty title from model "%s"; falling back to "%s".',
+			$prompt_select,
+			$fallback
+		));
+		return $fallback;
+	}
+
+	return $cleaned;
+}
+
+/**
+ * 根据关键词拼一个兜底标题，保证文章至少有个可用的标题。
+ *
+ * @param array $keywords
+ * @return string
+ */
+function abcc_generate_title_fallback($keywords)
+{
+	$keywords = array_values(array_filter(array_map('trim', (array) $keywords)));
+	if (empty($keywords)) {
+		return '新文章：' . wp_date('Y-m-d H:i');
+	}
+	$primary = $keywords[0];
+	if (count($keywords) >= 2) {
+		return sprintf('%s 与 %s：趋势观察与深度解读', $keywords[0], $keywords[1]);
+	}
+	return sprintf('%s：最新趋势与深度解读', $primary);
 }
 
 /**
@@ -444,6 +512,11 @@ function abcc_generate_post_content($api_key, $keywords, $prompt_select, $title,
     - 不要包含空行或空段落
     - 确保 HTML 格式整洁，没有多余的空格或换行
     - 在结束回复之前确保所有 HTML 标签已正确闭合';
+
+	// Brand Kit — 在 legacy prompt 末尾同样追加品牌植入引导。
+	if (function_exists('abcc_build_brand_prompt_suffix')) {
+		$prompt .= abcc_build_brand_prompt_suffix();
+	}
 
 	// Perplexity needs a minimum token floor to complete a structured HTML post without truncation.
 	if (0 === strpos($prompt_select, 'sonar')) {
@@ -494,6 +567,11 @@ function abcc_generate_post_content_with_template($api_key, $keywords, $prompt_s
 
 	// Always enforce HTML structure rules regardless of what the template says.
 	$prompt .= ABCC_CONTENT_FORMAT_REQUIREMENTS;
+
+	// Brand Kit — 在 prompt 末尾追加品牌植入引导（若启用）。
+	if (function_exists('abcc_build_brand_prompt_suffix')) {
+		$prompt .= abcc_build_brand_prompt_suffix();
+	}
 
 	// Perplexity needs a minimum token floor to complete a structured HTML post without truncation.
 	if (0 === strpos($prompt_select, 'sonar')) {

@@ -1,9 +1,8 @@
 === WP-AutoInsight ===
-Contributors: phalkmin
 Tags: openai, anthropic, google-ai, perplexity, ai-content
 Requires at least: 6.8
 Tested up to: 7.0
-Stable tag: 3.8.0
+Stable tag: 4.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Short Description: Publish AI-written content directly from WordPress, using your own OpenAI, Claude, Gemini, or Perplexity keys. No subscriptions. No surprises. You pay for exactly what you get.
