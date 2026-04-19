@@ -33,6 +33,38 @@ function abcc_save_content_sources($sources)
 }
 
 /**
+ * 构造 Google 新闻搜索 RSS URL。
+ *
+ * Google News 暴露了一个任意关键词即可调用的 RSS 端点：
+ *   https://news.google.com/rss/search?q=KEYWORD&hl=zh-CN&gl=CN&ceid=CN:zh-Hans
+ * 它会返回跨媒体聚合的最新新闻（支持中文），比固定站点 RSS 覆盖面广得多。
+ *
+ * @since 4.1.4
+ * @param string $query    搜索关键词（自由文本）。
+ * @param string $language UI/检索语言，默认 zh-CN；其他如 en-US、zh-TW。
+ * @param string $region   国家/地区 code，默认 CN；其他如 US、HK、TW。
+ * @return string
+ */
+function abcc_build_google_news_search_url($query, $language = 'zh-CN', $region = 'CN')
+{
+	$query    = trim((string) $query);
+	$language = $language ?: 'zh-CN';
+	$region   = $region ?: 'CN';
+
+	// ceid = region:language_simple，中文特殊处理成 zh-Hans。
+	$lang_simple = (0 === stripos($language, 'zh')) ? 'zh-Hans' : substr($language, 0, 2);
+	$ceid        = $region . ':' . $lang_simple;
+
+	return sprintf(
+		'https://news.google.com/rss/search?q=%s&hl=%s&gl=%s&ceid=%s',
+		rawurlencode($query),
+		rawurlencode($language),
+		rawurlencode($region),
+		rawurlencode($ceid)
+	);
+}
+
+/**
  * 预置的体育新闻 RSS 源。英文站由 AI 改写为中文，所以源是英文也没关系。
  *
  * 维护说明：RSS 地址会变动，若某个失效到后台"内容来源"里直接删掉或替换即可。
@@ -79,6 +111,91 @@ function abcc_get_preset_sports_rss_feeds()
 			'enabled'  => true,
 		),
 	);
+}
+
+/**
+ * 预置的体育类 Google 新闻关键词搜索（中文）。
+ *
+ * 每条会被展开成 Google News RSS 搜索 URL，覆盖全网主流媒体（中/英混合返回），
+ * 然后由 AI 洗稿改写成中文原创文章发布。
+ *
+ * @since 4.1.4
+ * @return array
+ */
+function abcc_get_preset_sports_news_searches()
+{
+	return array(
+		array(
+			'name'     => 'Google 新闻：NBA',
+			'type'     => 'news_search',
+			'query'    => 'NBA',
+			'language' => 'zh-CN',
+			'region'   => 'CN',
+			'category' => 0,
+			'enabled'  => true,
+		),
+		array(
+			'name'     => 'Google 新闻：英超',
+			'type'     => 'news_search',
+			'query'    => '英超',
+			'language' => 'zh-CN',
+			'region'   => 'CN',
+			'category' => 0,
+			'enabled'  => true,
+		),
+		array(
+			'name'     => 'Google 新闻：中超',
+			'type'     => 'news_search',
+			'query'    => '中超联赛',
+			'language' => 'zh-CN',
+			'region'   => 'CN',
+			'category' => 0,
+			'enabled'  => true,
+		),
+		array(
+			'name'     => 'Google 新闻：世界杯',
+			'type'     => 'news_search',
+			'query'    => '世界杯',
+			'language' => 'zh-CN',
+			'region'   => 'CN',
+			'category' => 0,
+			'enabled'  => true,
+		),
+	);
+}
+
+/**
+ * 把预置 Google 新闻搜索合入现有来源，按 name+query 去重。供 4.1.4 迁移调用。
+ *
+ * @since 4.1.4
+ * @return int 本次新增条目数。
+ */
+function abcc_seed_preset_sports_news_searches()
+{
+	$existing = abcc_get_content_sources();
+	$existing_keys = array();
+	foreach ((array) $existing as $src) {
+		if ('news_search' === ($src['type'] ?? '')) {
+			$existing_keys[] = strtolower(trim($src['query'] ?? '')) . '|' . ($src['language'] ?? '');
+		}
+	}
+
+	$added = 0;
+	foreach (abcc_get_preset_sports_news_searches() as $preset) {
+		$key = strtolower(trim($preset['query'])) . '|' . $preset['language'];
+		if (in_array($key, $existing_keys, true)) {
+			continue;
+		}
+		$existing[]      = $preset;
+		$existing_keys[] = $key;
+		$added++;
+	}
+
+	if ($added > 0) {
+		abcc_save_content_sources($existing);
+	}
+
+	return $added;
 }
 
 /**
@@ -331,6 +448,18 @@ function abcc_fetch_source_content($source)
 {
 	if ('rss' === $source['type']) {
 		$items = abcc_fetch_rss_items_cached($source['url'], 5);
+	} elseif ('news_search' === $source['type']) {
+		$query  = isset($source['query']) ? trim((string) $source['query']) : '';
+		$lang   = ! empty($source['language']) ? $source['language'] : 'zh-CN';
+		$region = ! empty($source['region']) ? $source['region'] : 'CN';
+		if ('' === $query) {
+			return new WP_Error(
+				'missing_query',
+				__('Google 新闻搜索需要配置关键词。', 'automated-blog-content-creator')
+			);
+		}
+		$search_url = abcc_build_google_news_search_url($query, $lang, $region);
+		$items      = abcc_fetch_rss_items_cached($search_url, 8);
 	} elseif ('trending' === $source['type']) {
 		$platform = $source['platform'] ?? 'baidu';
 
@@ -830,10 +959,10 @@ function abcc_ajax_save_sources()
 	if (is_array($raw_sources)) {
 		foreach ($raw_sources as $src) {
 			$url  = isset($src['url']) ? esc_url_raw(trim($src['url'])) : '';
-			$type = isset($src['type']) && in_array($src['type'], array('rss', 'webpage', 'trending'), true) ? $src['type'] : 'rss';
+			$type = isset($src['type']) && in_array($src['type'], array('rss', 'webpage', 'trending', 'news_search'), true) ? $src['type'] : 'rss';
 
-			// URL is required for rss and webpage types, but not trending.
-			if (empty($url) && 'trending' !== $type) {
+			// trending 和 news_search 不需要 URL，只有 rss/webpage 要求 URL。
+			if (empty($url) && 'trending' !== $type && 'news_search' !== $type) {
 				continue;
 			}
 
@@ -846,7 +975,17 @@ function abcc_ajax_save_sources()
 			);
 
 			if ('trending' === $type) {
-				$entry['platform'] = isset($src['platform']) && in_array($src['platform'], array('baidu', 'toutiao', 'zhihu'), true) ? $src['platform'] : 'baidu';
+				$entry['platform'] = isset($src['platform']) && in_array($src['platform'], array('baidu', 'toutiao', 'zhihu', 'merged'), true) ? $src['platform'] : 'baidu';
+			}
+
+			if ('news_search' === $type) {
+				$query = isset($src['query']) ? sanitize_text_field($src['query']) : '';
+				if ('' === $query) {
+					continue; // 没关键词的 news_search 条目直接丢弃。
+				}
+				$entry['query']    = $query;
+				$entry['language'] = isset($src['language']) ? sanitize_text_field($src['language']) : 'zh-CN';
+				$entry['region']   = isset($src['region']) ? sanitize_text_field($src['region']) : 'CN';
 			}
 
 			$sources[] = $entry;
@@ -872,9 +1011,15 @@ function abcc_ajax_fetch_source_preview()
 	$url      = isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '';
 	$type     = isset($_POST['type']) ? sanitize_text_field(wp_unslash($_POST['type'])) : 'rss';
 	$platform = isset($_POST['platform']) ? sanitize_key(wp_unslash($_POST['platform'])) : 'baidu';
+	$query    = isset($_POST['query']) ? sanitize_text_field(wp_unslash($_POST['query'])) : '';
+	$language = isset($_POST['language']) ? sanitize_text_field(wp_unslash($_POST['language'])) : 'zh-CN';
+	$region   = isset($_POST['region']) ? sanitize_text_field(wp_unslash($_POST['region'])) : 'CN';
 
-	if (empty($url) && 'trending' !== $type) {
+	if (empty($url) && 'trending' !== $type && 'news_search' !== $type) {
 		wp_send_json_error(array('message' => __('URL 不能为空。', 'automated-blog-content-creator')));
+	}
+	if ('news_search' === $type && '' === $query) {
+		wp_send_json_error(array('message' => __('Google 新闻搜索需要填写关键词。', 'automated-blog-content-creator')));
 	}
 
 	$source = array(
@@ -882,6 +1027,9 @@ function abcc_ajax_fetch_source_preview()
 		'url'      => $url,
 		'type'     => $type,
 		'platform' => $platform,
+		'query'    => $query,
+		'language' => $language,
+		'region'   => $region,
 	);
 
 	$items = abcc_fetch_source_content($source);

@@ -343,6 +343,17 @@ function abcc_run_settings_migrations()
 		abcc_update_setting('abcc_version', $installed_version);
 	}
 
+	if (version_compare($installed_version, '4.1.4', '<')) {
+		// 预置 4 组 Google 新闻关键词搜索（NBA/英超/中超/世界杯，中文），
+		// 由 AI 洗稿后发布。已存在（按关键词+语言）的不重复添加。
+		if (function_exists('abcc_seed_preset_sports_news_searches')) {
+			abcc_seed_preset_sports_news_searches();
+		}
+
+		$installed_version = '4.1.4';
+		abcc_update_setting('abcc_version', $installed_version);
+	}
+
 	if (version_compare(get_option('abcc_version', '1.0.0'), ABCC_VERSION, '<')) {
 		abcc_update_setting('abcc_version', ABCC_VERSION);
 	}

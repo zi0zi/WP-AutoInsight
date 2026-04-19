@@ -28,6 +28,7 @@ $sources = abcc_get_content_sources();
                             <?php
                             if ('rss' === $source['type']) echo 'RSS';
                             elseif ('trending' === $source['type']) esc_html_e('热点新闻', 'automated-blog-content-creator');
+                            elseif ('news_search' === $source['type']) esc_html_e('Google 新闻搜索', 'automated-blog-content-creator');
                             else esc_html_e('网页', 'automated-blog-content-creator');
                             ?>
                         </span>
@@ -40,7 +41,7 @@ $sources = abcc_get_content_sources();
                             <?php esc_html_e('来源名称', 'automated-blog-content-creator'); ?>
                             <input type="text" class="abcc-source-name" value="<?php echo esc_attr($source['name']); ?>" placeholder="<?php esc_attr_e('例如：36氪科技', 'automated-blog-content-creator'); ?>">
                         </label>
-                        <label>
+                        <label class="abcc-source-url-label" style="<?php echo in_array($source['type'], array('trending', 'news_search'), true) ? 'display:none;' : ''; ?>">
                             <?php esc_html_e('来源地址', 'automated-blog-content-creator'); ?>
                             <input type="url" class="abcc-source-url" value="<?php echo esc_attr($source['url']); ?>" placeholder="https://">
                         </label>
@@ -48,8 +49,32 @@ $sources = abcc_get_content_sources();
                             <?php esc_html_e('类型', 'automated-blog-content-creator'); ?>
                             <select class="abcc-source-type">
                                 <option value="rss" <?php selected($source['type'], 'rss'); ?>>RSS 订阅</option>
+                                <option value="news_search" <?php selected($source['type'], 'news_search'); ?>><?php esc_html_e('Google 新闻搜索（关键词）', 'automated-blog-content-creator'); ?></option>
                                 <option value="webpage" <?php selected($source['type'], 'webpage'); ?>><?php esc_html_e('网页', 'automated-blog-content-creator'); ?></option>
                                 <option value="trending" <?php selected($source['type'], 'trending'); ?>><?php esc_html_e('热点新闻', 'automated-blog-content-creator'); ?></option>
+                            </select>
+                        </label>
+                        <label class="abcc-source-query-label" style="<?php echo 'news_search' === $source['type'] ? '' : 'display:none;'; ?>">
+                            <?php esc_html_e('搜索关键词', 'automated-blog-content-creator'); ?>
+                            <input type="text" class="abcc-source-query" value="<?php echo esc_attr($source['query'] ?? ''); ?>" placeholder="<?php esc_attr_e('例如：NBA、英超、世界杯', 'automated-blog-content-creator'); ?>">
+                        </label>
+                        <label class="abcc-source-language-label" style="<?php echo 'news_search' === $source['type'] ? '' : 'display:none;'; ?>">
+                            <?php esc_html_e('语言', 'automated-blog-content-creator'); ?>
+                            <select class="abcc-source-language">
+                                <option value="zh-CN" <?php selected($source['language'] ?? 'zh-CN', 'zh-CN'); ?>>简体中文 (zh-CN)</option>
+                                <option value="zh-TW" <?php selected($source['language'] ?? 'zh-CN', 'zh-TW'); ?>>繁体中文 (zh-TW)</option>
+                                <option value="en-US" <?php selected($source['language'] ?? 'zh-CN', 'en-US'); ?>>English (en-US)</option>
+                                <option value="ja-JP" <?php selected($source['language'] ?? 'zh-CN', 'ja-JP'); ?>>日本語 (ja-JP)</option>
+                            </select>
+                        </label>
+                        <label class="abcc-source-region-label" style="<?php echo 'news_search' === $source['type'] ? '' : 'display:none;'; ?>">
+                            <?php esc_html_e('地区', 'automated-blog-content-creator'); ?>
+                            <select class="abcc-source-region">
+                                <option value="CN" <?php selected($source['region'] ?? 'CN', 'CN'); ?>>中国大陆 (CN)</option>
+                                <option value="HK" <?php selected($source['region'] ?? 'CN', 'HK'); ?>>香港 (HK)</option>
+                                <option value="TW" <?php selected($source['region'] ?? 'CN', 'TW'); ?>>台湾 (TW)</option>
+                                <option value="US" <?php selected($source['region'] ?? 'CN', 'US'); ?>>United States (US)</option>
+                                <option value="JP" <?php selected($source['region'] ?? 'CN', 'JP'); ?>>日本 (JP)</option>
                             </select>
                         </label>
                         <label class="abcc-source-platform-label" style="<?php echo 'trending' === $source['type'] ? '' : 'display:none;'; ?>">
@@ -100,7 +125,7 @@ $sources = abcc_get_content_sources();
                 <?php esc_html_e('来源名称', 'automated-blog-content-creator'); ?>
                 <input type="text" class="abcc-source-name" value="" placeholder="<?php esc_attr_e('例如：36氪科技', 'automated-blog-content-creator'); ?>">
             </label>
-            <label>
+            <label class="abcc-source-url-label">
                 <?php esc_html_e('来源地址', 'automated-blog-content-creator'); ?>
                 <input type="url" class="abcc-source-url" value="" placeholder="https://">
             </label>
@@ -108,8 +133,32 @@ $sources = abcc_get_content_sources();
                 <?php esc_html_e('类型', 'automated-blog-content-creator'); ?>
                 <select class="abcc-source-type">
                     <option value="rss">RSS 订阅</option>
+                    <option value="news_search"><?php esc_html_e('Google 新闻搜索（关键词）', 'automated-blog-content-creator'); ?></option>
                     <option value="webpage"><?php esc_html_e('网页', 'automated-blog-content-creator'); ?></option>
                     <option value="trending"><?php esc_html_e('热点新闻', 'automated-blog-content-creator'); ?></option>
+                </select>
+            </label>
+            <label class="abcc-source-query-label" style="display:none;">
+                <?php esc_html_e('搜索关键词', 'automated-blog-content-creator'); ?>
+                <input type="text" class="abcc-source-query" value="" placeholder="<?php esc_attr_e('例如：NBA、英超、世界杯', 'automated-blog-content-creator'); ?>">
+            </label>
+            <label class="abcc-source-language-label" style="display:none;">
+                <?php esc_html_e('语言', 'automated-blog-content-creator'); ?>
+                <select class="abcc-source-language">
+                    <option value="zh-CN">简体中文 (zh-CN)</option>
+                    <option value="zh-TW">繁体中文 (zh-TW)</option>
+                    <option value="en-US">English (en-US)</option>
+                    <option value="ja-JP">日本語 (ja-JP)</option>
+                </select>
+            </label>
+            <label class="abcc-source-region-label" style="display:none;">
+                <?php esc_html_e('地区', 'automated-blog-content-creator'); ?>
+                <select class="abcc-source-region">
+                    <option value="CN">中国大陆 (CN)</option>
+                    <option value="HK">香港 (HK)</option>
+                    <option value="TW">台湾 (TW)</option>
+                    <option value="US">United States (US)</option>
+                    <option value="JP">日本 (JP)</option>
                 </select>
             </label>
             <label class="abcc-source-platform-label" style="display:none;">
@@ -179,6 +228,11 @@ $sources = abcc_get_content_sources();
     .abcc-type-trending {
         background: #f8d7da;
         color: #721c24;
+    }
+
+    .abcc-type-news_search {
+        background: #e2d6f7;
+        color: #4a148c;
     }
 
     .abcc-source-status.enabled {
@@ -292,6 +346,9 @@ $sources = abcc_get_content_sources();
                     url: $item.find('.abcc-source-url').val(),
                     type: $item.find('.abcc-source-type').val(),
                     platform: $item.find('.abcc-source-platform').val() || 'baidu',
+                    query: $item.find('.abcc-source-query').val() || '',
+                    language: $item.find('.abcc-source-language').val() || 'zh-CN',
+                    region: $item.find('.abcc-source-region').val() || 'CN',
                     category: $item.find('select[name^="abcc_source_category"]').val() || 0,
                     enabled: $item.find('.abcc-source-enabled').is(':checked') ? 1 : 0
                 });
@@ -328,7 +385,10 @@ $sources = abcc_get_content_sources();
                 nonce: nonce,
                 url: $item.find('.abcc-source-url').val(),
                 type: $item.find('.abcc-source-type').val(),
-                platform: $item.find('.abcc-source-platform').val() || 'baidu'
+                platform: $item.find('.abcc-source-platform').val() || 'baidu',
+                query: $item.find('.abcc-source-query').val() || '',
+                language: $item.find('.abcc-source-language').val() || 'zh-CN',
+                region: $item.find('.abcc-source-region').val() || 'CN'
             }, function(resp) {
                 $btn.prop('disabled', false).text('<?php echo esc_js(__('预览采集', 'automated-blog-content-creator')); ?>');
                 if (resp.success && resp.data.items) {
@@ -382,17 +442,24 @@ $sources = abcc_get_content_sources();
             });
         });
 
-        // Toggle URL / platform fields based on source type.
+        // Toggle URL / platform / news_search fields based on source type.
         $list.on('change', '.abcc-source-type', function() {
             var $item = $(this).closest('.abcc-source-item');
-            var isTrending = $(this).val() === 'trending';
-            $item.find('.abcc-source-url').closest('label').toggle(!isTrending);
+            var type = $(this).val();
+            var isTrending = type === 'trending';
+            var isNewsSearch = type === 'news_search';
+            var needsUrl = !isTrending && !isNewsSearch;
+            $item.find('.abcc-source-url-label').toggle(needsUrl);
             $item.find('.abcc-source-platform-label').toggle(isTrending);
+            $item.find('.abcc-source-query-label').toggle(isNewsSearch);
+            $item.find('.abcc-source-language-label').toggle(isNewsSearch);
+            $item.find('.abcc-source-region-label').toggle(isNewsSearch);
             // Update badge.
             var $badge = $item.find('.abcc-source-type-badge');
-            $badge.removeClass('abcc-type-rss abcc-type-webpage abcc-type-trending').addClass('abcc-type-' + $(this).val());
-            if ($(this).val() === 'rss') $badge.text('RSS');
-            else if ($(this).val() === 'trending') $badge.text('热点新闻');
+            $badge.removeClass('abcc-type-rss abcc-type-webpage abcc-type-trending abcc-type-news_search').addClass('abcc-type-' + type);
+            if (type === 'rss') $badge.text('RSS');
+            else if (type === 'trending') $badge.text('热点新闻');
+            else if (type === 'news_search') $badge.text('Google 新闻搜索');
             else $badge.text('网页');
         });
     });
