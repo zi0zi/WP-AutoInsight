@@ -127,7 +127,13 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 		);
 
 		if (false === $content_array || ! is_array($content_array)) {
-			throw new Exception('Content generation failed - no content returned from AI service');
+			// 常见原因：max_tokens 太低被推理模型吃光 / API key 失效 / provider 返回 5xx。
+			// 具体失败原因已在 gpt.php 里 error_log，查 debug.log 搜 "API Error" 可定位。
+			throw new Exception(sprintf(
+				'Content generation failed - no content returned from AI service (model: %s, tokens: %d). 请检查 debug.log 中的 API Error。',
+				$prompt_select,
+				(int) $char_limit
+			));
 		}
 
 		$content_array = array_filter(
@@ -518,10 +524,9 @@ function abcc_generate_post_content($api_key, $keywords, $prompt_select, $title,
 		$prompt .= abcc_build_brand_prompt_suffix();
 	}
 
-	// Perplexity needs a minimum token floor to complete a structured HTML post without truncation.
-	if (0 === strpos($prompt_select, 'sonar')) {
-		$char_limit = max($char_limit, 800);
-	}
+	// 所有 provider 的内容生成都给一个最小 token 预算：旧默认 200 对推理模型会被 reasoning 吃光，
+ // 导致输出为空。Perplexity sonar 本来就需要更高。
+	$char_limit = max((int) $char_limit, 800);
 
 	return abcc_generate_content($api_key, $prompt, $prompt_select, $char_limit);
 }
@@ -573,10 +578,9 @@ function abcc_generate_post_content_with_template($api_key, $keywords, $prompt_s
 		$prompt .= abcc_build_brand_prompt_suffix();
 	}
 
-	// Perplexity needs a minimum token floor to complete a structured HTML post without truncation.
-	if (0 === strpos($prompt_select, 'sonar')) {
-		$char_limit = max($char_limit, 800);
-	}
+	// 所有 provider 的内容生成都给一个最小 token 预算：旧默认 200 对推理模型会被 reasoning 吃光，
+ // 导致输出为空。Perplexity sonar 本来就需要更高。
+	$char_limit = max((int) $char_limit, 800);
 
 	return abcc_generate_content($api_key, $prompt, $prompt_select, $char_limit);
 }

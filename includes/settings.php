@@ -64,7 +64,7 @@ function abcc_get_settings_schema()
 			'abcc_perplexity_citation_style'  => array('default' => 'inline'),
 			'abcc_perplexity_recency_filter'  => array('default' => ''),
 			'openai_auto_create'              => array('default' => ''),
-			'openai_char_limit'               => array('default' => 200),
+			'openai_char_limit'               => array('default' => 1200),
 			'openai_email_notifications'      => array('default' => false),
 			'openai_generate_images'          => array('default' => true),
 			'abcc_image_source'               => array('default' => 'ai'),
@@ -307,8 +307,19 @@ function abcc_run_settings_migrations()
 		if (false === (bool) get_option('abcc_random_publish', false)) {
 			abcc_update_setting('abcc_random_publish', true);
 		}
-
 		$installed_version = '4.1.0';
+		abcc_update_setting('abcc_version', $installed_version);
+	}
+
+	if (version_compare($installed_version, '4.1.1', '<')) {
+		// 老默认 openai_char_limit=200 对推理模型（o-series / gpt-5 / sonar-reasoning）会被 reasoning 吃光
+		// 造成"no content returned from AI service"。任何 ≤ 300 的旧值推到 1200，保证有足够输出预算。
+		$old_limit = (int) get_option('openai_char_limit', 200);
+		if ($old_limit <= 300) {
+			abcc_update_setting('openai_char_limit', 1200);
+		}
+
+		$installed_version = '4.1.1';
 		abcc_update_setting('abcc_version', $installed_version);
 	}
 
