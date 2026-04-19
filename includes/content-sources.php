@@ -239,35 +239,244 @@ function abcc_fetch_trending_items($platform = 'baidu', $limit = 10)
 /**
  * Fetch content from a source (RSS or webpage).
  *
+ * 该函数会走缓存层 + item 级去重（若启用），避免同一条热点被反复生稿。
+ *
  * @param array $source Source configuration.
  * @return array|WP_Error Fetched content items or error.
  */
 function abcc_fetch_source_content($source)
 {
 	if ('rss' === $source['type']) {
-		return abcc_fetch_rss_items($source['url'], 5);
-	}
-
-	if ('trending' === $source['type']) {
+		$items = abcc_fetch_rss_items_cached($source['url'], 5);
+	} elseif ('trending' === $source['type']) {
 		$platform = $source['platform'] ?? 'baidu';
-		return abcc_fetch_trending_items($platform, 10);
+
+		// 如果是 "merged" 虚拟平台，跨多个平台合并。
+		if ('merged' === $platform) {
+			$platforms = abcc_get_setting('abcc_source_merge_platforms', array('baidu', 'toutiao', 'zhihu'));
+			$items     = abcc_fetch_merged_trending_items((array) $platforms, 10);
+		} else {
+			$items = abcc_fetch_trending_items_cached($platform, 10);
+		}
+	} else {
+		// Webpage: wrap single result to match RSS array format.
+		$text = abcc_fetch_webpage_content_cached($source['url']);
+		if (is_wp_error($text)) {
+			return $text;
+		}
+		$items = array(
+			array(
+				'title'       => $source['name'],
+				'link'        => $source['url'],
+				'description' => $text,
+				'content'     => $text,
+				'date'        => current_time('Y-m-d H:i:s'),
+			),
+		);
 	}
 
-	// Webpage: wrap single result to match RSS array format.
-	$text = abcc_fetch_webpage_content($source['url']);
-	if (is_wp_error($text)) {
-		return $text;
+	if (is_wp_error($items) || empty($items)) {
+		return $items;
 	}
 
-	return array(
-		array(
-			'title'       => $source['name'],
-			'link'        => $source['url'],
-			'description' => $text,
-			'content'     => $text,
-			'date'        => current_time('Y-m-d H:i:s'),
-		),
-	);
+	// Item 级去重：过滤已经用过的条目。
+	if (abcc_get_setting('abcc_source_dedupe_enabled', true)) {
+		$items = abcc_source_filter_unused_items($items);
+		if (empty($items)) {
+			return new WP_Error(
+				'all_items_used',
+				__('该来源的所有条目近期已被使用过，请稍后再试或切换来源。', 'automated-blog-content-creator')
+			);
+		}
+	}
+
+	return $items;
+}
+
+/* ---------------------------------------------------------------------------
+ * Source caching & item-level dedup (since 3.9.0)
+ * ---------------------------------------------------------------------------
+ *
+ * 设计要点：
+ * - 热点 API / RSS 响应按 URL 做 transient 缓存，TTL 默认 30 分钟，避免被频繁抓取 banned。
+ * - 每个 item 用标题指纹（归一化 + md5）写入「近期已用」集合，默认保留 500 条。
+ * - 合并采集：跨平台抓取后按标题相似度做一次汇总，「多平台命中的热点」排在前面，
+ *   单平台独有的作为补充。返回时仍然是单个 items[] 结构。
+ */
+
+function abcc_source_cache_ttl()
+{
+	return max(60, (int) abcc_get_setting('abcc_source_cache_ttl', 1800));
+}
+
+function abcc_fetch_trending_items_cached($platform, $limit = 10)
+{
+	$key   = 'abcc_src_trending_' . md5($platform . ':' . $limit);
+	$cache = get_transient($key);
+	if (false !== $cache) {
+		return $cache;
+	}
+	$fresh = abcc_fetch_trending_items($platform, $limit);
+	if (! is_wp_error($fresh) && ! empty($fresh)) {
+		set_transient($key, $fresh, abcc_source_cache_ttl());
+	}
+	return $fresh;
+}
+
+function abcc_fetch_rss_items_cached($url, $limit = 5)
+{
+	$key   = 'abcc_src_rss_' . md5($url . ':' . $limit);
+	$cache = get_transient($key);
+	if (false !== $cache) {
+		return $cache;
+	}
+	$fresh = abcc_fetch_rss_items($url, $limit);
+	if (! is_wp_error($fresh) && ! empty($fresh)) {
+		set_transient($key, $fresh, abcc_source_cache_ttl());
+	}
+	return $fresh;
+}
+
+function abcc_fetch_webpage_content_cached($url)
+{
+	$key   = 'abcc_src_web_' . md5($url);
+	$cache = get_transient($key);
+	if (false !== $cache) {
+		return $cache;
+	}
+	$fresh = abcc_fetch_webpage_content($url);
+	if (! is_wp_error($fresh) && ! empty($fresh)) {
+		set_transient($key, $fresh, abcc_source_cache_ttl());
+	}
+	return $fresh;
+}
+
+/**
+ * 生成 item 指纹（基于标题归一化）。
+ */
+function abcc_source_item_fingerprint($item)
+{
+	$title = isset($item['title']) ? (string) $item['title'] : '';
+	if (function_exists('abcc_quality_normalize_title')) {
+		return md5(abcc_quality_normalize_title($title));
+	}
+	return md5(mb_strtolower(preg_replace('/\s+/u', '', $title), 'UTF-8'));
+}
+
+function abcc_source_get_used_fingerprints()
+{
+	$seen = get_option('abcc_source_items_seen', array());
+	return is_array($seen) ? $seen : array();
+}
+
+/**
+ * 把 item 标记为已使用，限制队列长度。
+ */
+function abcc_source_mark_item_used($fingerprint)
+{
+	if ('' === $fingerprint) {
+		return;
+	}
+	$seen = abcc_source_get_used_fingerprints();
+	// 值里存时间戳，供以后做 TTL 清理。
+	$seen[$fingerprint] = time();
+
+	$max = max(50, (int) abcc_get_setting('abcc_source_dedupe_history_size', 500));
+	if (count($seen) > $max) {
+		// 按时间戳排序，只保留最新 $max 条。
+		arsort($seen);
+		$seen = array_slice($seen, 0, $max, true);
+	}
+
+	update_option('abcc_source_items_seen', $seen, false);
+}
+
+/**
+ * 过滤掉已经使用过的 item。
+ */
+function abcc_source_filter_unused_items($items)
+{
+	$seen = abcc_source_get_used_fingerprints();
+	if (empty($seen)) {
+		return $items;
+	}
+	return array_values(array_filter($items, function ($item) use ($seen) {
+		return ! isset($seen[abcc_source_item_fingerprint($item)]);
+	}));
+}
+
+/**
+ * 跨平台合并采集 + 跨源加权。
+ *
+ * 对多个平台抓到的 items 做一次汇总：
+ * - 标题指纹相同的多个条目视作同一热点，权重 +1
+ * - 权重高的排前（表示多平台共同报道，信号更强）
+ * - 最多返回 $limit 个 item，供 AI 生稿使用
+ *
+ * @param array $platforms
+ * @param int   $limit
+ * @return array|WP_Error
+ */
+function abcc_fetch_merged_trending_items($platforms, $limit = 10)
+{
+	$buckets = array(); // fingerprint => ['item'=>..., 'weight'=>int, 'platforms'=>[]]
+	$errors  = array();
+
+	foreach ($platforms as $platform) {
+		$res = abcc_fetch_trending_items_cached($platform, $limit);
+		if (is_wp_error($res)) {
+			$errors[] = $platform . ':' . $res->get_error_message();
+			continue;
+		}
+		foreach ($res as $item) {
+			$fp = abcc_source_item_fingerprint($item);
+			if ('' === $fp) {
+				continue;
+			}
+			if (! isset($buckets[$fp])) {
+				$buckets[$fp] = array(
+					'item'      => $item,
+					'weight'    => 0,
+					'platforms' => array(),
+				);
+			}
+			$buckets[$fp]['weight']++;
+			$buckets[$fp]['platforms'][] = $platform;
+
+			// 合并 description：保留最长的一条作为主要素材。
+			$curr_desc = $buckets[$fp]['item']['description'] ?? '';
+			$new_desc  = $item['description'] ?? '';
+			if (mb_strlen($new_desc) > mb_strlen($curr_desc)) {
+				$buckets[$fp]['item']['description'] = $new_desc;
+				$buckets[$fp]['item']['content']     = $new_desc;
+			}
+		}
+	}
+
+	if (empty($buckets)) {
+		return new WP_Error(
+			'no_items',
+			__('跨源合并未获取到任何热点。', 'automated-blog-content-creator') . ' [' . implode('; ', $errors) . ']'
+		);
+	}
+
+	// 权重降序。
+	uasort($buckets, function ($a, $b) {
+		return $b['weight'] <=> $a['weight'];
+	});
+
+	$merged = array();
+	foreach ($buckets as $b) {
+		$item                     = $b['item'];
+		$item['_merge_weight']    = $b['weight'];
+		$item['_merge_platforms'] = array_values(array_unique($b['platforms']));
+		$merged[]                 = $item;
+		if (count($merged) >= $limit) {
+			break;
+		}
+	}
+
+	return $merged;
 }
 
 /**
@@ -340,6 +549,11 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	$prompt     = abcc_build_source_prompt($items, $tone);
 	$prompt    .= ABCC_CONTENT_FORMAT_REQUIREMENTS;
 
+	// Brand Kit — 追加品牌植入引导。
+	if (function_exists('abcc_build_brand_prompt_suffix')) {
+		$prompt .= abcc_build_brand_prompt_suffix();
+	}
+
 	// Get AI parameters.
 	$model      = isset($options['model']) ? $options['model'] : abcc_get_setting('prompt_select', 'gpt-4.1-mini-2025-04-14');
 	$char_limit = isset($options['char_limit']) ? (int) $options['char_limit'] : (int) abcc_get_setting('openai_char_limit', 200);
@@ -381,11 +595,31 @@ function abcc_generate_post_from_source($source_index, $options = array())
 		return new WP_Error('empty_content', __('生成的内容为空。', 'automated-blog-content-creator'));
 	}
 
+	// Brand Kit — 后处理注入品牌。
+	if (function_exists('abcc_apply_brand_to_content')) {
+		$content_array = abcc_apply_brand_to_content($content_array);
+	}
+
 	$format_content = abcc_create_blocks($content_array);
 	$post_content   = abcc_gutenberg_blocks($format_content);
 
 	$is_draft_first    = abcc_get_setting('abcc_draft_first', true);
 	$is_random_publish = abcc_get_setting('abcc_random_publish', false);
+
+	// 质量闸门：查重 + 评分。
+	$quality_evaluation = null;
+	if (function_exists('abcc_quality_is_enabled') && abcc_quality_is_enabled()) {
+		$source_keywords    = array_slice(array_map(function ($i) {
+			return $i['title'];
+		}, $items), 0, 3);
+		$quality_evaluation = abcc_quality_evaluate($title, $post_content, $source_keywords);
+		if (! $quality_evaluation['passed']) {
+			return new WP_Error('quality_gate_blocked', '质量闸门拦截：' . implode('；', $quality_evaluation['reasons']));
+		}
+		if ($quality_evaluation['force_draft']) {
+			$is_draft_first = true;
+		}
+	}
 
 	$post_data = array(
 		'post_title'    => $title,
@@ -395,11 +629,12 @@ function abcc_generate_post_from_source($source_index, $options = array())
 		'post_type'     => 'post',
 		'post_category' => $category ? array($category) : array(),
 		'meta_input'    => array(
-			'_abcc_generated'    => '1',
-			'_abcc_model'        => $model,
-			'_abcc_source'       => $source['name'],
-			'_abcc_source_url'   => $source['url'],
-			'_abcc_source_type'  => $source['type'],
+			'_abcc_generated'           => '1',
+			'_abcc_model'               => $model,
+			'_abcc_source'              => $source['name'],
+			'_abcc_source_url'          => $source['url'],
+			'_abcc_source_type'         => $source['type'],
+			'_abcc_source_fingerprints' => wp_json_encode(array_map('abcc_source_item_fingerprint', $items)),
 		),
 	);
 
@@ -422,6 +657,18 @@ function abcc_generate_post_from_source($source_index, $options = array())
 
 	if (is_wp_error($post_id)) {
 		return $post_id;
+	}
+
+	// 写入质量评分 meta。
+	if ($quality_evaluation && function_exists('abcc_quality_attach_meta')) {
+		abcc_quality_attach_meta($post_id, $quality_evaluation, $title, $post_content);
+	}
+
+	// 标记采集 items 为已使用，下次 fetch 时会被过滤。
+	if (abcc_get_setting('abcc_source_dedupe_enabled', true)) {
+		foreach ($items as $used_item) {
+			abcc_source_mark_item_used(abcc_source_item_fingerprint($used_item));
+		}
 	}
 
 	// Schedule random-time publishing if enabled (and not in review-first mode).

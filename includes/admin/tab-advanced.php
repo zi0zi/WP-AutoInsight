@@ -476,6 +476,109 @@ if (! defined('ABSPATH')) {
 				</td>
 			</tr>
 		</table>
+
+		<h2 style="margin-top:30px;"><?php esc_html_e('内容质量闸门', 'automated-blog-content-creator'); ?></h2>
+		<p class="description"><?php esc_html_e('为 AI 生成的文章增加「入库前」的查重和质量评分闸门，低分文章会被强制草稿或直接拦截。', 'automated-blog-content-creator'); ?></p>
+		<table class="form-table">
+			<tr>
+				<th scope="row"><?php esc_html_e('启用质量闸门', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<label>
+						<input type="checkbox" name="abcc_quality_enabled" value="1" <?php checked(abcc_get_setting('abcc_quality_enabled', true)); ?>>
+						<?php esc_html_e('启用查重 + 质量评分（推荐）', 'automated-blog-content-creator'); ?>
+					</label>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('硬闸门分数（低于此分拦截）', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<input type="number" name="abcc_quality_min_score" value="<?php echo esc_attr((int) abcc_get_setting('abcc_quality_min_score', 60)); ?>" min="0" max="100" class="small-text"> / 100
+					<p class="description"><?php esc_html_e('低于此分数文章直接拒绝入库（会记录到生成日志中）。建议 50–65。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('强制草稿分数（低于此分改草稿）', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<input type="number" name="abcc_quality_force_draft_below" value="<?php echo esc_attr((int) abcc_get_setting('abcc_quality_force_draft_below', 70)); ?>" min="0" max="100" class="small-text"> / 100
+					<p class="description"><?php esc_html_e('分数 ≥ 硬闸门但 < 此分时，即使开了自动发布也会改为草稿。建议 65–80。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('启用查重', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<label>
+						<input type="checkbox" name="abcc_quality_dedupe_enabled" value="1" <?php checked(abcc_get_setting('abcc_quality_dedupe_enabled', true)); ?>>
+						<?php esc_html_e('对新生成文章做标题 + 内容指纹查重', 'automated-blog-content-creator'); ?>
+					</label>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('相似度阈值（simhash %）', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<input type="number" name="abcc_quality_dedupe_threshold" value="<?php echo esc_attr((int) abcc_get_setting('abcc_quality_dedupe_threshold', 85)); ?>" min="50" max="100" class="small-text"> %
+					<p class="description"><?php esc_html_e('与近期文章相似度高于此值即判为重复。建议 80–90。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('查重回溯天数', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<input type="number" name="abcc_quality_dedupe_scope_days" value="<?php echo esc_attr((int) abcc_get_setting('abcc_quality_dedupe_scope_days', 180)); ?>" min="7" max="3650" class="small-text"> <?php esc_html_e('天', 'automated-blog-content-creator'); ?>
+					<p class="description"><?php esc_html_e('仅与此时间窗内的文章比对，避免 QPS 过高。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+		</table>
+
+		<h2 style="margin-top:30px;"><?php esc_html_e('热点采集优化', 'automated-blog-content-creator'); ?></h2>
+		<p class="description"><?php esc_html_e('控制热点/RSS/网页的抓取缓存与 item 级去重，避免频繁抓取被封锁、避免同一条热点被反复生稿。', 'automated-blog-content-creator'); ?></p>
+		<table class="form-table">
+			<tr>
+				<th scope="row"><?php esc_html_e('采集缓存时间', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<input type="number" name="abcc_source_cache_ttl" value="<?php echo esc_attr((int) abcc_get_setting('abcc_source_cache_ttl', 1800)); ?>" min="60" max="86400" class="small-text"> <?php esc_html_e('秒', 'automated-blog-content-creator'); ?>
+					<p class="description"><?php esc_html_e('热点 API / RSS / 网页响应的 transient 缓存 TTL，建议 1800 (30 分钟) — 7200 (2 小时)。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('Item 级去重', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<label>
+						<input type="checkbox" name="abcc_source_dedupe_enabled" value="1" <?php checked(abcc_get_setting('abcc_source_dedupe_enabled', true)); ?>>
+						<?php esc_html_e('同一条热点条目不会被反复用于生稿', 'automated-blog-content-creator'); ?>
+					</label>
+					<p class="description"><?php esc_html_e('按标题指纹判断，命中后会从 fetch 结果中过滤掉。适合高频采集场景。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('已用条目历史上限', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<input type="number" name="abcc_source_dedupe_history_size" value="<?php echo esc_attr((int) abcc_get_setting('abcc_source_dedupe_history_size', 500)); ?>" min="50" max="5000" class="small-text">
+					<p class="description"><?php esc_html_e('超过此数量时自动淘汰最早的条目指纹。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e('跨源合并参与平台', 'automated-blog-content-creator'); ?></th>
+				<td>
+					<?php
+					$merge_platforms = (array) abcc_get_setting('abcc_source_merge_platforms', array('baidu', 'toutiao', 'zhihu'));
+					$all_platforms   = array(
+						'baidu'   => '百度热搜',
+						'toutiao' => '今日头条',
+						'zhihu'   => '知乎热榜',
+					);
+					foreach ($all_platforms as $key => $label) {
+						printf(
+							'<label style="margin-right:12px;"><input type="checkbox" name="abcc_source_merge_platforms[]" value="%s" %s> %s</label>',
+							esc_attr($key),
+							in_array($key, $merge_platforms, true) ? 'checked' : '',
+							esc_html($label)
+						);
+					}
+					?>
+					<p class="description"><?php esc_html_e('来源类型选择「跨源合并」时，将从这些平台拉取并按标题相似度合并加权。', 'automated-blog-content-creator'); ?></p>
+				</td>
+			</tr>
+		</table>
+
 		<?php submit_button(__('Save Advanced Settings', 'automated-blog-content-creator')); ?>
 	</form>
 </div>
