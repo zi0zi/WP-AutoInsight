@@ -78,7 +78,7 @@ function abcc_get_settings_schema()
 			'abcc_supported_audio_formats'    => array('default' => array('mp3', 'wav', 'm4a', 'webm')),
 			'abcc_transcription_language'     => array('default' => 'en'),
 			'abcc_content_sources'            => array('default' => array()),
-			'abcc_random_publish'             => array('default' => true),
+			'abcc_random_publish'             => array('default' => false),
 			'abcc_publish_time_start'         => array('default' => '08:00'),
 			'abcc_publish_time_end'           => array('default' => '22:00'),
 			// Brand Kit — keywords/brand推广插入。
@@ -320,6 +320,16 @@ function abcc_run_settings_migrations()
 		}
 
 		$installed_version = '4.1.1';
+		abcc_update_setting('abcc_version', $installed_version);
+	}
+
+	if (version_compare($installed_version, '4.1.2', '<')) {
+		// 4.1.0 时我把 abcc_random_publish 自动置 true 是错的——它并不是"立即发布"，
+		// 而是"先存草稿、调度 WP-Cron 到窗口内随机时段再发布"，导致用户看到的始终是草稿。
+		// 这里统一把它清回 false，让生成后直接 publish。想随机时段的用户可自己到后台重新打开。
+		abcc_update_setting('abcc_random_publish', false);
+
+		$installed_version = '4.1.2';
 		abcc_update_setting('abcc_version', $installed_version);
 	}
 
