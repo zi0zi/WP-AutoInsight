@@ -333,6 +333,16 @@ function abcc_run_settings_migrations()
 		abcc_update_setting('abcc_version', $installed_version);
 	}
 
+	if (version_compare($installed_version, '4.1.3', '<')) {
+		// 预置 5 个体育新闻 RSS 作为内容来源。已存在的 URL 不重复添加。
+		if (function_exists('abcc_seed_preset_sports_rss_feeds')) {
+			abcc_seed_preset_sports_rss_feeds();
+		}
+
+		$installed_version = '4.1.3';
+		abcc_update_setting('abcc_version', $installed_version);
+	}
+
 	if (version_compare(get_option('abcc_version', '1.0.0'), ABCC_VERSION, '<')) {
 		abcc_update_setting('abcc_version', ABCC_VERSION);
 	}

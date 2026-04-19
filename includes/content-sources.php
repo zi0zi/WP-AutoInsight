@@ -33,6 +33,89 @@ function abcc_save_content_sources($sources)
 }
 
 /**
+ * 预置的体育新闻 RSS 源。英文站由 AI 改写为中文，所以源是英文也没关系。
+ *
+ * 维护说明：RSS 地址会变动，若某个失效到后台"内容来源"里直接删掉或替换即可。
+ *
+ * @since 4.1.3
+ * @return array
+ */
+function abcc_get_preset_sports_rss_feeds()
+{
+	return array(
+		array(
+			'name'     => 'BBC Sport',
+			'url'      => 'https://feeds.bbci.co.uk/sport/rss.xml',
+			'type'     => 'rss',
+			'category' => 0,
+			'enabled'  => true,
+		),
+		array(
+			'name'     => 'ESPN Top Headlines',
+			'url'      => 'https://www.espn.com/espn/rss/news',
+			'type'     => 'rss',
+			'category' => 0,
+			'enabled'  => true,
+		),
+		array(
+			'name'     => 'The Guardian Sport',
+			'url'      => 'https://www.theguardian.com/sport/rss',
+			'type'     => 'rss',
+			'category' => 0,
+			'enabled'  => true,
+		),
+		array(
+			'name'     => 'Sky Sports News',
+			'url'      => 'https://www.skysports.com/rss/12040',
+			'type'     => 'rss',
+			'category' => 0,
+			'enabled'  => true,
+		),
+		array(
+			'name'     => 'CBS Sports Headlines',
+			'url'      => 'https://www.cbssports.com/rss/headlines/',
+			'type'     => 'rss',
+			'category' => 0,
+			'enabled'  => true,
+		),
+	);
+}
+
+/**
+ * 把预置体育 RSS 合入现有来源，按 URL 去重。供 4.1.3 迁移调用。
+ *
+ * @since 4.1.3
+ * @return int 本次新增条目数。
+ */
+function abcc_seed_preset_sports_rss_feeds()
+{
+	$existing     = abcc_get_content_sources();
+	$existing_urls = array();
+	foreach ((array) $existing as $src) {
+		if (! empty($src['url'])) {
+			$existing_urls[] = strtolower(trim($src['url']));
+		}
+	}
+
+	$added = 0;
+	foreach (abcc_get_preset_sports_rss_feeds() as $preset) {
+		$key = strtolower(trim($preset['url']));
+		if (in_array($key, $existing_urls, true)) {
+			continue;
+		}
+		$existing[]      = $preset;
+		$existing_urls[] = $key;
+		$added++;
+	}
+
+	if ($added > 0) {
+		abcc_save_content_sources($existing);
+	}
+
+	return $added;
+}
+
+/**
  * Fetch items from an RSS feed.
  *
  * Uses WordPress built-in SimplePie via fetch_feed().
