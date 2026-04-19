@@ -436,35 +436,69 @@ $sources = abcc_get_content_sources();
             });
         });
 
-        // Generate from source.
+        // Generate from source — 异步入队，轮询 job 状态。
+        var jobNonce = '<?php echo esc_js(wp_create_nonce('abcc_openai_generate_post')); ?>';
+        var generateLabel = '<?php echo esc_js(__('立即采集并生成', 'automated-blog-content-creator')); ?>';
+
+        function resetGenerateBtn($btn) {
+            $btn.prop('disabled', false).text(generateLabel);
+        }
+
+        function pollSourceJob(jobId, $btn) {
+            $.post(ajaxurl, {
+                action: 'abcc_get_job_status',
+                nonce: jobNonce,
+                job_id: jobId
+            }, function(resp) {
+                if (!resp.success) {
+                    resetGenerateBtn($btn);
+                    alert(resp.data && resp.data.message ? resp.data.message : '查询任务状态失败');
+                    return;
+                }
+                var job = resp.data;
+                if (job.status === 'queued' || job.status === 'running') {
+                    $btn.text((job.statusLabel || '生成中') + '...');
+                    setTimeout(function() { pollSourceJob(jobId, $btn); }, 3000);
+                    return;
+                }
+                if (job.status === 'succeeded' && job.post_id) {
+                    resetGenerateBtn($btn);
+                    if (confirm('生成成功！是否立即编辑？')) {
+                        window.location.href = job.edit_url;
+                    }
+                    return;
+                }
+                resetGenerateBtn($btn);
+                alert(job.message || '生成失败');
+            }).fail(function() {
+                resetGenerateBtn($btn);
+                alert('网络错误：任务状态查询失败');
+            });
+        }
+
         $list.on('click', '.abcc-generate-from-source', function() {
             var $btn = $(this);
             var idx = $btn.data('index');
 
             if (!confirm('确定要从此来源采集内容并通过 AI 生成文章吗？')) return;
 
-            $btn.prop('disabled', true).text('生成中...');
+            $btn.prop('disabled', true).text('排队中...');
 
             $.post(ajaxurl, {
                 action: 'abcc_generate_from_source',
                 nonce: nonce,
                 source_index: idx
             }, function(resp) {
-                $btn.prop('disabled', false).text('<?php echo esc_js(__('立即采集并生成', 'automated-blog-content-creator')); ?>');
-                if (resp.success) {
-                    if (resp.data.edit_url) {
-                        if (confirm(resp.data.message + '\n\n是否立即编辑？')) {
-                            window.location.href = resp.data.edit_url;
-                        }
-                    } else {
-                        alert(resp.data.message);
-                    }
+                if (resp.success && resp.data.job_id) {
+                    $btn.text('生成中...');
+                    pollSourceJob(resp.data.job_id, $btn);
                 } else {
-                    alert(resp.data.message || '生成失败');
+                    resetGenerateBtn($btn);
+                    alert((resp.data && resp.data.message) ? resp.data.message : '生成失败');
                 }
             }).fail(function() {
-                $btn.prop('disabled', false).text('<?php echo esc_js(__('立即采集并生成', 'automated-blog-content-creator')); ?>');
-                alert('网络错误');
+                resetGenerateBtn($btn);
+                alert('网络错误：入队失败');
             });
         });
 

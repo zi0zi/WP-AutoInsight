@@ -872,6 +872,7 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	$model      = isset($options['model']) ? $options['model'] : abcc_get_setting('prompt_select', 'gpt-4.1-mini-2025-04-14');
 	$char_limit = isset($options['char_limit']) ? (int) $options['char_limit'] : (int) abcc_get_setting('openai_char_limit', 200);
 	$category   = isset($options['category']) ? (int) $options['category'] : (int) ($source['category'] ?? 0);
+	$post_type  = isset($options['post_type']) && post_type_exists($options['post_type']) ? $options['post_type'] : 'post';
 
 	// Resolve API key.
 	$provider = abcc_get_model_provider($model);
@@ -940,7 +941,7 @@ function abcc_generate_post_from_source($source_index, $options = array())
 		'post_content'  => wp_kses_post($post_content),
 		'post_status'   => ($is_draft_first || $is_random_publish) ? 'draft' : 'publish',
 		'post_author'   => get_current_user_id() ?: 1,
-		'post_type'     => 'post',
+		'post_type'     => $post_type,
 		'post_category' => $category ? array($category) : array(),
 		'meta_input'    => array(
 			'_abcc_generated'           => '1',
@@ -1164,6 +1165,10 @@ add_action('wp_ajax_abcc_fetch_source_preview', 'abcc_ajax_fetch_source_preview'
 
 /**
  * AJAX handler: Generate a post from a specific source.
+ *
+ * 走后台 job 队列异步生成——采集+AI洗稿+配图一轮常常需要 30–120s，
+ * 同步 AJAX 容易被 PHP/Nginx/CDN 截成 504/断流，前端只能看到"网络错误"。
+ * 入队后立即返回 job_id，前端轮询 abcc_get_job_status 读进度。
  */
 function abcc_ajax_generate_from_source()
 {
@@ -1171,26 +1176,38 @@ function abcc_ajax_generate_from_source()
 
 	if (! current_user_can('manage_options')) {
 		wp_send_json_error(array('message' => __('权限不足。', 'automated-blog-content-creator')));
+		return;
 	}
 
 	$source_index = isset($_POST['source_index']) ? absint($_POST['source_index']) : -1;
 
 	if ($source_index < 0) {
 		wp_send_json_error(array('message' => __('无效的来源索引。', 'automated-blog-content-creator')));
+		return;
 	}
 
-	$post_id = abcc_generate_post_from_source($source_index);
-
-	if (is_wp_error($post_id)) {
-		wp_send_json_error(array('message' => $post_id->get_error_message()));
+	$sources = abcc_get_content_sources();
+	if (! isset($sources[$source_index])) {
+		wp_send_json_error(array('message' => __('无效的来源索引。', 'automated-blog-content-creator')));
+		return;
 	}
 
-	wp_send_json_success(
-		array(
-			'message' => __('从来源生成文章成功！', 'automated-blog-content-creator'),
-			'post_id' => $post_id,
-			'edit_url' => get_edit_post_link($post_id, ''),
-		)
-	);
+	$payload = abcc_build_generation_payload(array(
+		'source'       => 'manual',
+		'source_index' => $source_index,
+		'category'     => (int) ($sources[$source_index]['category'] ?? 0),
+	));
+
+	$job_id = abcc_queue_generation_job($payload);
+
+	if (is_wp_error($job_id)) {
+		wp_send_json_error(array('message' => $job_id->get_error_message()));
+		return;
+	}
+
+	wp_send_json_success(array(
+		'message' => __('已加入生成队列，正在后台采集并洗稿…', 'automated-blog-content-creator'),
+		'job_id'  => $job_id,
+	));
 }
 add_action('wp_ajax_abcc_generate_from_source', 'abcc_ajax_generate_from_source');
