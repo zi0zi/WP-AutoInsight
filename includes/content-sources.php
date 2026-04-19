@@ -803,20 +803,39 @@ function abcc_fetch_merged_trending_items($platforms, $limit = 10)
  */
 function abcc_build_source_prompt($items, $tone = 'professional', $template = '')
 {
+	$is_single = 1 === count($items);
+
 	$source_text = '';
 	$index       = 1;
 	foreach ($items as $item) {
-		$content      = ! empty($item['content']) ? $item['content'] : $item['description'];
-		$source_text .= sprintf("【素材 %d】%s\n%s\n\n", $index, $item['title'], $content);
+		$content = ! empty($item['content']) ? $item['content'] : ($item['description'] ?? '');
+		if ($is_single) {
+			$source_text = sprintf("原文标题：%s\n\n原文正文：\n%s", $item['title'], $content);
+		} else {
+			$source_text .= sprintf("【素材 %d】%s\n%s\n\n", $index, $item['title'], $content);
+		}
 		++$index;
 	}
 
 	if (! empty($template)) {
-		$prompt = str_replace(
+		return str_replace(
 			array('{source_content}', '{tone}'),
 			array($source_text, $tone),
 			$template
 		);
+	}
+
+	if ($is_single) {
+		// 洗稿单文模式：只围绕一篇原文重写，避免把多个不相关主题硬凑在一起。
+		$prompt  = "你是一个专业的中文内容编辑。请基于下面这一篇原文，撰写一篇全新的、原创的中文博客文章。\n\n";
+		$prompt .= "核心要求：\n";
+		$prompt .= "- 全文只围绕原文这一个主题展开，不要引入原文没提到的其他新闻/事件/人物\n";
+		$prompt .= "- 不要逐句照抄原文，要用自己的语言重新组织表达\n";
+		$prompt .= "- 必须保留原文的关键事实：人物、地点、时间、数据、引述等，不得编造\n";
+		$prompt .= "- 文章语气：{$tone}\n";
+		$prompt .= "- 结构清晰：引言、3–5 个小节（每节带 <h2>/<h3> 标题）、结论\n";
+		$prompt .= "- 字数控制在 800–1500 字\n\n";
+		$prompt .= $source_text;
 	} else {
 		$prompt  = "你是一个专业的中文内容编辑。请根据以下采集到的素材内容，撰写一篇全新的、原创的中文博客文章。\n\n";
 		$prompt .= "要求：\n";
@@ -830,6 +849,44 @@ function abcc_build_source_prompt($items, $tone = 'professional', $template = ''
 	}
 
 	return $prompt;
+}
+
+/**
+ * 从候选素材池中挑选一条作为本次洗稿的主素材。
+ *
+ * 原先把整个 items 列表（RSS 5 条 / 新闻 8 条 / 热点 10 条）一股脑丢给 AI 让它"综合撰写"，
+ * 结果就是几个毫不相关主题被硬融成一篇乱炖。改成：
+ *  - 取第一条（已经按相关性/时间/权重排序）
+ *  - 对 RSS / 新闻搜索条目，额外去原文 link 抓一次正文，RSS description/content
+ *    通常只是几百字的摘要，拿到完整正文才能做真正的洗稿
+ *  - trending/ai_search/webpage 保持原样
+ *
+ * @param array $items  候选素材数组。
+ * @param array $source 来源配置（用于判断 type）。
+ * @return array|WP_Error 单个 item，或失败时 WP_Error。
+ */
+function abcc_pick_primary_source_item($items, $source)
+{
+	if (empty($items)) {
+		return new WP_Error('no_items', __('未获取到素材。', 'automated-blog-content-creator'));
+	}
+
+	$primary = $items[0];
+	$type    = $source['type'] ?? 'rss';
+
+	if (in_array($type, array('rss', 'news_search'), true) && ! empty($primary['link'])) {
+		$full = abcc_fetch_webpage_content_cached($primary['link']);
+		if (! is_wp_error($full) && is_string($full) && '' !== $full) {
+			$current_len = mb_strlen((string) ($primary['content'] ?? $primary['description'] ?? ''));
+			if (mb_strlen($full) > $current_len) {
+				// 截断到 8000 字符，既保证够 AI 洗稿又不爆 token 预算。
+				$primary['content']     = mb_substr($full, 0, 8000);
+				$primary['description'] = mb_substr($full, 0, 500);
+			}
+		}
+	}
+
+	return $primary;
 }
 
 /**
@@ -858,9 +915,15 @@ function abcc_generate_post_from_source($source_index, $options = array())
 		return new WP_Error('no_content', __('未从来源采集到内容。', 'automated-blog-content-creator'));
 	}
 
+	// 选一条主素材：整批 items 只是候选池 + 去重记忆，真正写稿只用这一条。
+	$primary_item = abcc_pick_primary_source_item($items, $source);
+	if (is_wp_error($primary_item)) {
+		return $primary_item;
+	}
+
 	// Build the prompt.
 	$tone       = isset($options['tone']) ? $options['tone'] : abcc_get_setting('openai_tone', 'default');
-	$prompt     = abcc_build_source_prompt($items, $tone);
+	$prompt     = abcc_build_source_prompt(array($primary_item), $tone);
 	$prompt    .= ABCC_CONTENT_FORMAT_REQUIREMENTS;
 
 	// Brand Kit — 追加品牌植入引导。
@@ -881,9 +944,8 @@ function abcc_generate_post_from_source($source_index, $options = array())
 		return new WP_Error('no_api_key', __('API 密钥未配置。', 'automated-blog-content-creator'));
 	}
 
-	// Generate title first.
-	$first_item    = $items[0];
-	$title_prompt  = '根据以下内容，生成一个有吸引力的中文博客文章标题：' . mb_substr($first_item['title'] . ' ' . $first_item['description'], 0, 200) . "\n";
+	// Generate title first — 和正文一致，基于主素材生成，避免标题跨主题。
+	$title_prompt  = '根据以下内容，生成一个有吸引力的中文博客文章标题：' . mb_substr($primary_item['title'] . ' ' . ($primary_item['description'] ?? ''), 0, 200) . "\n";
 	$title_prompt .= '重要：请只输出标题本身，不要包含任何解释、前缀、问候语、编号或其他多余内容。直接输出标题文字即可。';
 	$title_result  = abcc_generate_content($api_key, $title_prompt, $model, 50);
 
@@ -921,12 +983,10 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	$is_draft_first    = abcc_get_setting('abcc_draft_first', true);
 	$is_random_publish = abcc_get_setting('abcc_random_publish', false);
 
-	// 质量闸门：查重 + 评分。
+	// 质量闸门：查重 + 评分。关键词只取主素材的标题，不混入其他候选。
 	$quality_evaluation = null;
 	if (function_exists('abcc_quality_is_enabled') && abcc_quality_is_enabled()) {
-		$source_keywords    = array_slice(array_map(function ($i) {
-			return $i['title'];
-		}, $items), 0, 3);
+		$source_keywords    = array((string) $primary_item['title']);
 		$quality_evaluation = abcc_quality_evaluate($title, $post_content, $source_keywords);
 		if (! $quality_evaluation['passed']) {
 			return new WP_Error('quality_gate_blocked', '质量闸门拦截：' . implode('；', $quality_evaluation['reasons']));
@@ -949,16 +1009,16 @@ function abcc_generate_post_from_source($source_index, $options = array())
 			'_abcc_source'              => $source['name'],
 			'_abcc_source_url'          => $source['url'],
 			'_abcc_source_type'         => $source['type'],
-			'_abcc_source_fingerprints' => wp_json_encode(array_map('abcc_source_item_fingerprint', $items)),
+			'_abcc_source_fingerprints' => wp_json_encode(array(abcc_source_item_fingerprint($primary_item))),
+			'_abcc_source_item_title'   => (string) $primary_item['title'],
+			'_abcc_source_item_link'    => (string) ($primary_item['link'] ?? ''),
 		),
 	);
 
-	// Generate SEO data if enabled.
+	// Generate SEO data if enabled. 关键词只喂主素材，避免 SEO 描述跨主题。
 	$generate_seo = abcc_get_setting('openai_generate_seo', true) && 'none' !== abcc_get_active_seo_plugin();
 	if ($generate_seo) {
-		$keywords   = array_slice(array_map(function ($i) {
-			return $i['title'];
-		}, $items), 0, 3);
+		$keywords   = array((string) $primary_item['title']);
 		$seo_result = abcc_generate_title_and_seo($api_key, $keywords, $model, array(
 			'site_name'        => get_bloginfo('name'),
 			'site_description' => get_bloginfo('description'),
@@ -979,11 +1039,9 @@ function abcc_generate_post_from_source($source_index, $options = array())
 		abcc_quality_attach_meta($post_id, $quality_evaluation, $title, $post_content);
 	}
 
-	// 标记采集 items 为已使用，下次 fetch 时会被过滤。
+	// 标记采集 items 为已使用：只标记本次真正用掉的主素材，其余候选保留下次可用。
 	if (abcc_get_setting('abcc_source_dedupe_enabled', true)) {
-		foreach ($items as $used_item) {
-			abcc_source_mark_item_used(abcc_source_item_fingerprint($used_item));
-		}
+		abcc_source_mark_item_used(abcc_source_item_fingerprint($primary_item));
 	}
 
 	// Schedule random-time publishing if enabled (and not in review-first mode).
