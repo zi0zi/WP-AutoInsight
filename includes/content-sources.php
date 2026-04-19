@@ -82,7 +82,7 @@ function abcc_fetch_perplexity_research($query, $model = 'sonar')
 		return new WP_Error('perplexity_unavailable', __('Perplexity 提供方未加载。', 'automated-blog-content-creator'));
 	}
 
-	$api_key = abcc_resolve_api_key('perplexity');
+	$api_key = abcc_get_provider_api_key('perplexity');
 	if (empty($api_key)) {
 		return new WP_Error(
 			'no_perplexity_key',
@@ -876,7 +876,7 @@ function abcc_generate_post_from_source($source_index, $options = array())
 
 	// Resolve API key.
 	$provider = abcc_get_model_provider($model);
-	$api_key  = abcc_resolve_api_key($provider);
+	$api_key  = abcc_get_provider_api_key($provider);
 	if (empty($api_key)) {
 		return new WP_Error('no_api_key', __('API 密钥未配置。', 'automated-blog-content-creator'));
 	}
