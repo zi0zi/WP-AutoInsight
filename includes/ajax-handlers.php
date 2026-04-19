@@ -23,16 +23,11 @@ function abcc_handle_create_post()
 	}
 
 	try {
-		$groups              = get_option('abcc_keyword_groups', array());
 		$selected_post_types = get_option('abcc_selected_post_types', array('post'));
 		$post_type           = isset($_POST['post_type']) ? sanitize_key(wp_unslash($_POST['post_type'])) : '';
 
 		if (empty($post_type)) {
 			$post_type = ! empty($selected_post_types) ? $selected_post_types[0] : 'post';
-		}
-
-		if (empty($groups)) {
-			throw new Exception(__('No keyword groups found. Please add at least one group in Content Settings.', 'automated-blog-content-creator'));
 		}
 
 		if (! post_type_exists($post_type)) {
@@ -43,7 +38,54 @@ function abcc_handle_create_post()
 			throw new Exception(__('This post type is not enabled for manual generation.', 'automated-blog-content-creator'));
 		}
 
-		// Use the group index passed from the UI, falling back to the first group with keywords.
+		// 与定时生成保持一致：若有启用的内容来源，优先走洗稿路径，轮询下一个；
+		// 没有启用的来源时再回退到关键词组。
+		$sources         = function_exists('abcc_get_content_sources') ? abcc_get_content_sources() : array();
+		$enabled_sources = array_filter($sources, function ($s) {
+			return ! empty($s['enabled']);
+		});
+
+		if (! empty($enabled_sources)) {
+			$source_keys  = array_keys($enabled_sources);
+			$last_src_idx = (int) get_option('abcc_last_source_index', -1);
+			$next_src_key = $source_keys[0];
+
+			foreach ($source_keys as $i => $key) {
+				if ($key > $last_src_idx) {
+					$next_src_key = $key;
+					break;
+				}
+			}
+
+			update_option('abcc_last_source_index', $next_src_key);
+
+			$payload = abcc_build_generation_payload(array(
+				'source'       => 'manual',
+				'source_index' => (int) $next_src_key,
+				'category'     => (int) ($sources[$next_src_key]['category'] ?? 0),
+				'post_type'    => $post_type,
+			));
+
+			$job_id = abcc_queue_generation_job($payload);
+
+			if (is_wp_error($job_id)) {
+				throw new Exception($job_id->get_error_message());
+			}
+
+			wp_send_json_success(array(
+				'message' => esc_html__('Generation job queued successfully.', 'automated-blog-content-creator'),
+				'job_id'  => $job_id,
+			));
+			return;
+		}
+
+		// 回退：关键词组路径（老行为）。
+		$groups = get_option('abcc_keyword_groups', array());
+
+		if (empty($groups)) {
+			throw new Exception(__('No keyword groups found. Please add at least one group in Content Settings.', 'automated-blog-content-creator'));
+		}
+
 		$group_index    = isset($_POST['group_index']) ? absint($_POST['group_index']) : null;
 		$selected_group = null;
 

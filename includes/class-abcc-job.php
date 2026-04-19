@@ -216,23 +216,34 @@ function abcc_process_generation_job( $job_id ) {
 
 	try {
 		$started = microtime( true );
-		$api_key = abcc_check_api_key( $payload['model'] ?? '' );
 
-		if ( empty( $api_key ) ) {
-			abcc_mark_job_failed( $job_id, __( 'API key not configured for the selected model.', 'automated-blog-content-creator' ), $started );
-			return;
+		// 内容来源洗稿路径：payload 带 source_index 时走 abcc_generate_post_from_source，
+		// 它内部有自己的 fetch/标题/洗稿/配图流水线，无需再走关键词生成那一套。
+		$has_source_index = isset( $payload['source_index'] )
+			&& is_numeric( $payload['source_index'] )
+			&& (int) $payload['source_index'] >= 0;
+
+		if ( $has_source_index && function_exists( 'abcc_generate_post_from_source' ) ) {
+			$result = abcc_generate_post_from_source( (int) $payload['source_index'], $payload );
+		} else {
+			$api_key = abcc_check_api_key( $payload['model'] ?? '' );
+
+			if ( empty( $api_key ) ) {
+				abcc_mark_job_failed( $job_id, __( 'API key not configured for the selected model.', 'automated-blog-content-creator' ), $started );
+				return;
+			}
+
+			$result = abcc_openai_generate_post(
+				$api_key,
+				(array) ( $payload['keywords'] ?? array() ),
+				$payload['model'] ?? abcc_get_setting( 'prompt_select', 'gpt-4.1-mini-2025-04-14' ),
+				$payload['tone'] ?? abcc_get_setting( 'openai_tone', 'default' ),
+				'scheduled' === ( $payload['source'] ?? '' ),
+				(int) ( $payload['char_limit'] ?? abcc_get_setting( 'openai_char_limit', 200 ) ),
+				$payload['post_type'] ?? 'post',
+				$payload
+			);
 		}
-
-		$result = abcc_openai_generate_post(
-			$api_key,
-			(array) ( $payload['keywords'] ?? array() ),
-			$payload['model'] ?? abcc_get_setting( 'prompt_select', 'gpt-4.1-mini-2025-04-14' ),
-			$payload['tone'] ?? abcc_get_setting( 'openai_tone', 'default' ),
-			'scheduled' === ( $payload['source'] ?? '' ),
-			(int) ( $payload['char_limit'] ?? abcc_get_setting( 'openai_char_limit', 200 ) ),
-			$payload['post_type'] ?? 'post',
-			$payload
-		);
 
 		if ( is_wp_error( $result ) ) {
 			abcc_mark_job_failed( $job_id, $result->get_error_message(), $started );
