@@ -346,16 +346,142 @@ function abcc_fetch_rss_items($url, $limit = 5)
 	$result    = array();
 
 	foreach ($items as $item) {
+		$description_html = $item->get_description();
+		$content_html     = $item->get_content();
+		$permalink        = $item->get_permalink();
+
+		$images = array();
+
+		// RSS enclosures（Atom / RSS 2.0 的常规带图方式，含 media:content / media:thumbnail）。
+		foreach ((array) $item->get_enclosures() as $enc) {
+			if (! $enc) {
+				continue;
+			}
+			$link = method_exists($enc, 'get_link') ? $enc->get_link() : '';
+			$type = method_exists($enc, 'get_type') ? (string) $enc->get_type() : '';
+			if (empty($link)) {
+				continue;
+			}
+			if ('' !== $type && 0 !== strpos($type, 'image/')) {
+				continue;
+			}
+			if (abcc_source_is_useful_image($link)) {
+				$images[] = $link;
+			}
+		}
+
+		// 从 description / content HTML 里再挖一遍 <img src="">。
+		$images = array_merge(
+			$images,
+			abcc_source_extract_images_from_html($description_html, $permalink),
+			abcc_source_extract_images_from_html($content_html, $permalink)
+		);
+
 		$result[] = array(
 			'title'       => $item->get_title(),
-			'link'        => $item->get_permalink(),
-			'description' => wp_strip_all_tags($item->get_description()),
-			'content'     => wp_strip_all_tags($item->get_content()),
+			'link'        => $permalink,
+			'description' => wp_strip_all_tags($description_html),
+			'content'     => wp_strip_all_tags($content_html),
 			'date'        => $item->get_date('Y-m-d H:i:s'),
+			'images'      => array_values(array_unique($images)),
 		);
 	}
 
 	return $result;
+}
+
+/**
+ * 过滤掉明显没用的图片（追踪像素、logo、头像、emoji、sprite 等）。
+ */
+function abcc_source_is_useful_image($url)
+{
+	if (empty($url) || ! is_string($url)) {
+		return false;
+	}
+	if (! preg_match('#^https?://#i', $url)) {
+		return false;
+	}
+	$junk = '/(pixel|tracking|beacon|analytics|logo|avatar|emoji|icon|sprite|blank\.gif|1x1|spacer|badge)/i';
+	if (preg_match($junk, $url)) {
+		return false;
+	}
+	// 明显的超小图
+	if (preg_match('/[?&-](\d{1,2})x(\d{1,2})[.&_-]/i', $url)) {
+		return false;
+	}
+	return true;
+}
+
+/**
+ * 把相对 URL 解析为绝对 URL。基础 URL 通常是原文链接。
+ */
+function abcc_source_normalize_url($src, $base_url = '')
+{
+	$src = trim((string) $src);
+	if ('' === $src) {
+		return '';
+	}
+	if (preg_match('#^data:#i', $src)) {
+		return '';
+	}
+	if (preg_match('#^//#', $src)) {
+		return 'https:' . $src;
+	}
+	if (preg_match('#^https?://#i', $src)) {
+		return $src;
+	}
+	if (empty($base_url)) {
+		return $src;
+	}
+	$base = wp_parse_url($base_url);
+	if (! $base || empty($base['host'])) {
+		return $src;
+	}
+	$scheme = $base['scheme'] ?? 'https';
+	$host   = $base['host'];
+	if (0 === strpos($src, '/')) {
+		return $scheme . '://' . $host . $src;
+	}
+	$base_path = isset($base['path']) ? preg_replace('#/[^/]*$#', '/', $base['path']) : '/';
+	return $scheme . '://' . $host . $base_path . $src;
+}
+
+/**
+ * 从一段 HTML 里提取 <img src> + og:image。
+ *
+ * @param string $html     任意 HTML 片段或整页。
+ * @param string $base_url 用于解析相对地址的基准。
+ * @return string[]
+ */
+function abcc_source_extract_images_from_html($html, $base_url = '')
+{
+	if (empty($html)) {
+		return array();
+	}
+	$images = array();
+
+	if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+		$url = abcc_source_normalize_url($m[1], $base_url);
+		if (abcc_source_is_useful_image($url)) {
+			$images[] = $url;
+		}
+	}
+	if (preg_match('/<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+		$url = abcc_source_normalize_url($m[1], $base_url);
+		if (abcc_source_is_useful_image($url)) {
+			$images[] = $url;
+		}
+	}
+	if (preg_match_all('/<img[^>]+(?:data-src|src)=["\']([^"\']+)["\']/i', $html, $m)) {
+		foreach ($m[1] as $src) {
+			$url = abcc_source_normalize_url($src, $base_url);
+			if (abcc_source_is_useful_image($url)) {
+				$images[] = $url;
+			}
+		}
+	}
+
+	return array_values(array_unique($images));
 }
 
 /**
@@ -365,6 +491,24 @@ function abcc_fetch_rss_items($url, $limit = 5)
  * @return string|WP_Error Extracted text or WP_Error on failure.
  */
 function abcc_fetch_webpage_content($url)
+{
+	$article = abcc_fetch_webpage_article($url);
+	if (is_wp_error($article)) {
+		return $article;
+	}
+	return $article['text'];
+}
+
+/**
+ * Fetch a webpage and return both body text and image URLs in one request.
+ *
+ * 和旧的 abcc_fetch_webpage_content 共用同一个 HTTP 请求 —— 之前洗稿要拉一次，
+ * 找图又要再拉一次，重复浪费带宽也容易被反爬。这个版本一次性返回 text+images。
+ *
+ * @param string $url Webpage URL.
+ * @return array|WP_Error `['text' => string, 'images' => string[]]` 或 WP_Error。
+ */
+function abcc_fetch_webpage_article($url)
 {
 	$response = wp_remote_get(
 		$url,
@@ -395,33 +539,40 @@ function abcc_fetch_webpage_content($url)
 		return new WP_Error('empty_body', __('网页内容为空。', 'automated-blog-content-creator'));
 	}
 
-	// Extract text from <article>, <main>, or <body>.
-	$text = '';
+	// 先从整页抽 og:image / twitter:image（用原始 $body，不要脱标签）。
+	$images = abcc_source_extract_images_from_html($body, $url);
+
+	// 取主体区域用于正文提取。
+	$region = '';
 	if (preg_match('/<article[^>]*>(.*?)<\/article>/si', $body, $m)) {
-		$text = $m[1];
+		$region = $m[1];
 	} elseif (preg_match('/<main[^>]*>(.*?)<\/main>/si', $body, $m)) {
-		$text = $m[1];
+		$region = $m[1];
 	} elseif (preg_match('/<body[^>]*>(.*?)<\/body>/si', $body, $m)) {
-		$text = $m[1];
+		$region = $m[1];
 	} else {
-		$text = $body;
+		$region = $body;
 	}
 
-	// Remove scripts & styles.
-	$text = preg_replace('/<script[^>]*>.*?<\/script>/si', '', $text);
-	$text = preg_replace('/<style[^>]*>.*?<\/style>/si', '', $text);
+	// 主体里再挖一遍 <img>，这些通常是正文插图，插回文章更自然。
+	$region_images = abcc_source_extract_images_from_html($region, $url);
+	$images        = array_values(array_unique(array_merge($images, $region_images)));
 
-	// Strip tags and normalize whitespace.
+	// 去脚本/样式后再提纯文字。
+	$text = preg_replace('/<script[^>]*>.*?<\/script>/si', '', $region);
+	$text = preg_replace('/<style[^>]*>.*?<\/style>/si', '', $text);
 	$text = wp_strip_all_tags($text);
 	$text = preg_replace('/\s+/', ' ', $text);
 	$text = trim($text);
 
-	// Limit to ~3000 characters to stay within prompt size constraints.
 	if (mb_strlen($text) > 3000) {
 		$text = mb_substr($text, 0, 3000) . '...';
 	}
 
-	return $text;
+	return array(
+		'text'   => $text,
+		'images' => $images,
+	);
 }
 
 /**
@@ -574,17 +725,20 @@ function abcc_fetch_source_content($source)
 		}
 	} else {
 		// Webpage: wrap single result to match RSS array format.
-		$text = abcc_fetch_webpage_content_cached($source['url']);
-		if (is_wp_error($text)) {
-			return $text;
+		$article = abcc_fetch_webpage_article_cached($source['url']);
+		if (is_wp_error($article)) {
+			return $article;
 		}
-		$items = array(
+		$text   = is_array($article) ? (string) ($article['text'] ?? '') : (string) $article;
+		$images = is_array($article) && ! empty($article['images']) ? $article['images'] : array();
+		$items  = array(
 			array(
 				'title'       => $source['name'],
 				'link'        => $source['url'],
 				'description' => $text,
 				'content'     => $text,
 				'date'        => current_time('Y-m-d H:i:s'),
+				'images'      => $images,
 			),
 		);
 	}
@@ -660,6 +814,23 @@ function abcc_fetch_webpage_content_cached($url)
 	}
 	$fresh = abcc_fetch_webpage_content($url);
 	if (! is_wp_error($fresh) && ! empty($fresh)) {
+		set_transient($key, $fresh, abcc_source_cache_ttl());
+	}
+	return $fresh;
+}
+
+/**
+ * Cached variant of abcc_fetch_webpage_article — returns both text and images.
+ */
+function abcc_fetch_webpage_article_cached($url)
+{
+	$key   = 'abcc_src_webart_' . md5($url);
+	$cache = get_transient($key);
+	if (false !== $cache && is_array($cache)) {
+		return $cache;
+	}
+	$fresh = abcc_fetch_webpage_article($url);
+	if (! is_wp_error($fresh) && is_array($fresh) && ! empty($fresh['text'])) {
 		set_transient($key, $fresh, abcc_source_cache_ttl());
 	}
 	return $fresh;
@@ -874,19 +1045,159 @@ function abcc_pick_primary_source_item($items, $source)
 	$primary = $items[0];
 	$type    = $source['type'] ?? 'rss';
 
+	if (! isset($primary['images']) || ! is_array($primary['images'])) {
+		$primary['images'] = array();
+	}
+
 	if (in_array($type, array('rss', 'news_search'), true) && ! empty($primary['link'])) {
-		$full = abcc_fetch_webpage_content_cached($primary['link']);
-		if (! is_wp_error($full) && is_string($full) && '' !== $full) {
-			$current_len = mb_strlen((string) ($primary['content'] ?? $primary['description'] ?? ''));
-			if (mb_strlen($full) > $current_len) {
-				// 截断到 8000 字符，既保证够 AI 洗稿又不爆 token 预算。
-				$primary['content']     = mb_substr($full, 0, 8000);
-				$primary['description'] = mb_substr($full, 0, 500);
+		$article = abcc_fetch_webpage_article_cached($primary['link']);
+		if (! is_wp_error($article) && is_array($article)) {
+			$full = isset($article['text']) ? (string) $article['text'] : '';
+			if ('' !== $full) {
+				$current_len = mb_strlen((string) ($primary['content'] ?? $primary['description'] ?? ''));
+				if (mb_strlen($full) > $current_len) {
+					// 截断到 8000 字符，既保证够 AI 洗稿又不爆 token 预算。
+					$primary['content']     = mb_substr($full, 0, 8000);
+					$primary['description'] = mb_substr($full, 0, 500);
+				}
+			}
+			if (! empty($article['images']) && is_array($article['images'])) {
+				// 合并 RSS enclosures 图片 + 原文页抓到的图片，原文页抓到的通常是正文插图，优先。
+				$primary['images'] = array_values(array_unique(array_merge(
+					$article['images'],
+					$primary['images']
+				)));
 			}
 		}
 	}
 
 	return $primary;
+}
+
+/**
+ * Sideload a remote image as a WP attachment belonging to $post_id.
+ *
+ * Return includes both attachment ID and the resulting local URL, so the caller
+ * can embed the image into post_content via a Gutenberg image block.
+ *
+ * @param string $url      Remote image URL.
+ * @param int    $post_id  Parent post ID.
+ * @param string $alt_text Optional alt text.
+ * @return array|false     ['attachment_id'=>int, 'url'=>string] or false on failure.
+ */
+function abcc_sideload_source_image($url, $post_id, $alt_text = '')
+{
+	if (empty($url) || ! is_string($url)) {
+		return false;
+	}
+
+	try {
+		if (! function_exists('media_sideload_image')) {
+			require_once ABSPATH . 'wp-admin/includes/media.php';
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+		}
+
+		$attachment_id = media_sideload_image($url, $post_id, null, 'id');
+		if (is_wp_error($attachment_id) || empty($attachment_id)) {
+			return false;
+		}
+
+		if (! empty($alt_text)) {
+			update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
+		}
+
+		$src = wp_get_attachment_image_url($attachment_id, 'large');
+		if (empty($src)) {
+			$src = wp_get_attachment_url($attachment_id);
+		}
+
+		return array(
+			'attachment_id' => (int) $attachment_id,
+			'url'           => (string) $src,
+		);
+	} catch (Exception $e) {
+		error_log('Source image sideload error: ' . $e->getMessage());
+		return false;
+	}
+}
+
+/**
+ * Build a Gutenberg image block string for injection into post_content.
+ */
+function abcc_build_image_block($attachment_id, $url, $alt_text = '')
+{
+	$alt   = esc_attr($alt_text);
+	$src   = esc_url($url);
+	$id    = (int) $attachment_id;
+	$attrs = wp_json_encode(array(
+		'id'              => $id,
+		'sizeSlug'        => 'large',
+		'linkDestination' => 'none',
+	));
+
+	return "<!-- wp:image {$attrs} -->\n"
+		. '<figure class="wp-block-image size-large">'
+		. "<img src=\"{$src}\" alt=\"{$alt}\" class=\"wp-image-{$id}\"/>"
+		. "</figure>\n<!-- /wp:image -->";
+}
+
+/**
+ * Inject image blocks into post_content at natural break points (before H2 sections).
+ *
+ * 策略：把图片块插在第 2、第 4 个 <h2> 之前，若不够就按段落间隔插入；
+ * 避免一股脑挤在开头或结尾。
+ *
+ * @param string   $content      已渲染好的 post_content（Gutenberg 块字符串）。
+ * @param string[] $image_blocks 预先构造好的 image block HTML 数组。
+ * @return string 注入图片后的 post_content。
+ */
+function abcc_inject_images_into_content($content, $image_blocks)
+{
+	if (empty($image_blocks) || '' === $content) {
+		return $content;
+	}
+
+	// 用 H2 块边界切分。
+	$parts = preg_split('/(<!-- wp:heading -->\s*<h2[^>]*>.*?<\/h2>\s*<!-- \/wp:heading -->)/s', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+	if (! is_array($parts) || count($parts) < 3) {
+		// 没有足够的 H2：直接在内容开头插一张。
+		return $image_blocks[0] . "\n\n" . $content;
+	}
+
+	$h2_indexes = array();
+	foreach ($parts as $i => $chunk) {
+		if (preg_match('/^<!-- wp:heading -->\s*<h2/', $chunk)) {
+			$h2_indexes[] = $i;
+		}
+	}
+
+	if (empty($h2_indexes)) {
+		return $image_blocks[0] . "\n\n" . $content;
+	}
+
+	// 选几个插入点：第 2、第 4、第 6 个 H2 之前（如果存在）。
+	$target_positions = array();
+	foreach (array(1, 3, 5) as $nth) {
+		if (isset($h2_indexes[$nth])) {
+			$target_positions[] = $h2_indexes[$nth];
+		}
+	}
+	if (empty($target_positions)) {
+		// 只有 1 个 H2：插在它之前。
+		$target_positions[] = $h2_indexes[0];
+	}
+
+	$img_idx = 0;
+	foreach ($target_positions as $pos) {
+		if (! isset($image_blocks[$img_idx])) {
+			break;
+		}
+		$parts[$pos] = $image_blocks[$img_idx] . "\n\n" . $parts[$pos];
+		$img_idx++;
+	}
+
+	return implode('', $parts);
 }
 
 /**
@@ -1049,8 +1360,51 @@ function abcc_generate_post_from_source($source_index, $options = array())
 		abcc_schedule_random_publish($post_id);
 	}
 
-	// Generate featured image if enabled.
-	if (abcc_get_setting('openai_generate_images', true)) {
+	// 优先使用原文带的图片：第一张做特色图，后续 2 张插入正文。
+	$used_source_featured = false;
+	$source_images        = isset($primary_item['images']) && is_array($primary_item['images']) ? $primary_item['images'] : array();
+
+	if (! empty($source_images)) {
+		$alt_text = abcc_build_featured_image_alt_text($title, '');
+
+		// 第一张：特色图。
+		$featured_url = array_shift($source_images);
+		$featured_att = abcc_set_featured_image($post_id, $featured_url, $alt_text);
+		if ($featured_att) {
+			$used_source_featured = true;
+		}
+
+		// 后续最多 2 张：正文插图。
+		$inline_blocks = array();
+		$inline_limit  = 2;
+		foreach ($source_images as $img_url) {
+			if (count($inline_blocks) >= $inline_limit) {
+				break;
+			}
+			$sideloaded = abcc_sideload_source_image($img_url, $post_id, $alt_text);
+			if (! $sideloaded) {
+				continue;
+			}
+			$inline_blocks[] = abcc_build_image_block(
+				$sideloaded['attachment_id'],
+				$sideloaded['url'],
+				$alt_text
+			);
+		}
+
+		if (! empty($inline_blocks)) {
+			$new_content = abcc_inject_images_into_content($post_content, $inline_blocks);
+			if ($new_content !== $post_content) {
+				wp_update_post(array(
+					'ID'           => $post_id,
+					'post_content' => wp_kses_post($new_content),
+				));
+			}
+		}
+	}
+
+	// 若原文没有可用图片，再退回 AI 生成特色图。
+	if (! $used_source_featured && abcc_get_setting('openai_generate_images', true)) {
 		try {
 			$image_result = abcc_generate_featured_image($model, array($title), array());
 			if ($image_result) {
