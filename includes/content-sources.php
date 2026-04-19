@@ -65,6 +65,98 @@ function abcc_build_google_news_search_url($query, $language = 'zh-CN', $region 
 }
 
 /**
+ * 用 Perplexity sonar 按主题做一次联网检索，返回"待洗稿"素材条目。
+ *
+ * 思路：sonar 模型自带实时 web 检索 + 引用；给它一个"新闻研究员"提示词，
+ * 让它返回最近关于 {topic} 的 3-5 条新闻摘要。返回结构对齐 RSS items，
+ * 好让下游 abcc_build_source_prompt 无差别再洗稿一次。
+ *
+ * @since 4.1.5
+ * @param string $query Topic.
+ * @param string $model sonar / sonar-pro / sonar-reasoning-pro。
+ * @return array|WP_Error
+ */
+function abcc_fetch_perplexity_research($query, $model = 'sonar')
+{
+	if (! function_exists('abcc_perplexity_generate_text')) {
+		return new WP_Error('perplexity_unavailable', __('Perplexity 提供方未加载。', 'automated-blog-content-creator'));
+	}
+
+	$api_key = abcc_resolve_api_key('perplexity');
+	if (empty($api_key)) {
+		return new WP_Error(
+			'no_perplexity_key',
+			__('未配置 Perplexity API 密钥，无法使用 AI 研究型来源。', 'automated-blog-content-creator')
+		);
+	}
+
+	$allowed = array('sonar', 'sonar-pro', 'sonar-reasoning-pro');
+	if (! in_array($model, $allowed, true)) {
+		$model = 'sonar';
+	}
+
+	$prompt  = "你是一位专业的新闻研究员。请检索最近关于「{$query}」的 3-5 条最重要的新闻或进展。\n\n";
+	$prompt .= "对每条新闻请给出：\n";
+	$prompt .= "1. 一行标题（不超过 30 个字）\n";
+	$prompt .= "2. 事件发生时间（若可获取，格式 YYYY-MM-DD，若无则写「近期」）\n";
+	$prompt .= "3. 核心事实摘要（3-5 句话，用中文）\n\n";
+	$prompt .= "格式要求：\n";
+	$prompt .= "- 每条之间用单独一行「---」分隔\n";
+	$prompt .= "- 不要加总标题、不要给个人评论或总结\n";
+	$prompt .= "- 不要编造，只根据你检索到的信息回答\n";
+	$prompt .= "- 全部用中文输出";
+
+	$response = abcc_perplexity_generate_text($api_key, $prompt, 1500, $model);
+
+	if (false === $response || empty($response['text'])) {
+		return new WP_Error(
+			'perplexity_empty',
+			__('Perplexity 未返回内容，请检查 API 密钥或主题。', 'automated-blog-content-creator')
+		);
+	}
+
+	$full_text = implode("\n", (array) $response['text']);
+	$citations = isset($response['citations']) ? (array) $response['citations'] : array();
+
+	// 按 "---" 分块，解析出多个 item；若模型没按格式走，整块作为单条素材。
+	$chunks = preg_split('/^\s*-{3,}\s*$/m', $full_text);
+	$items  = array();
+	foreach ($chunks as $idx => $chunk) {
+		$chunk = trim($chunk);
+		if ('' === $chunk) {
+			continue;
+		}
+		$lines = array_values(array_filter(array_map('trim', explode("\n", $chunk))));
+		if (empty($lines)) {
+			continue;
+		}
+		$title = preg_replace('/^\s*(\d+[.、)]\s*|[-*•]\s*|标题[:：]\s*)/u', '', $lines[0]);
+		$title = trim($title, " \t\n\r\0\x0B\"'‘’“”「」『』《》");
+		$body  = count($lines) > 1 ? implode("\n", array_slice($lines, 1)) : $lines[0];
+
+		$items[] = array(
+			'title'       => $title ?: $query,
+			'link'        => $citations[$idx] ?? ($citations[0] ?? ''),
+			'description' => wp_strip_all_tags($body),
+			'content'     => wp_strip_all_tags($body),
+			'date'        => current_time('Y-m-d H:i:s'),
+		);
+	}
+
+	if (empty($items)) {
+		$items[] = array(
+			'title'       => $query,
+			'link'        => $citations[0] ?? '',
+			'description' => wp_strip_all_tags($full_text),
+			'content'     => wp_strip_all_tags($full_text),
+			'date'        => current_time('Y-m-d H:i:s'),
+		);
+	}
+
+	return $items;
+}
+
+/**
  * 预置的体育新闻 RSS 源。英文站由 AI 改写为中文，所以源是英文也没关系。
  *
  * 维护说明：RSS 地址会变动，若某个失效到后台"内容来源"里直接删掉或替换即可。
@@ -448,6 +540,16 @@ function abcc_fetch_source_content($source)
 {
 	if ('rss' === $source['type']) {
 		$items = abcc_fetch_rss_items_cached($source['url'], 5);
+	} elseif ('ai_search' === $source['type']) {
+		$query = isset($source['query']) ? trim((string) $source['query']) : '';
+		$model = ! empty($source['ai_model']) ? $source['ai_model'] : 'sonar';
+		if ('' === $query) {
+			return new WP_Error(
+				'missing_query',
+				__('Perplexity AI 研究需要配置检索主题。', 'automated-blog-content-creator')
+			);
+		}
+		$items = abcc_fetch_perplexity_research($query, $model);
 	} elseif ('news_search' === $source['type']) {
 		$query  = isset($source['query']) ? trim((string) $source['query']) : '';
 		$lang   = ! empty($source['language']) ? $source['language'] : 'zh-CN';
@@ -959,10 +1061,10 @@ function abcc_ajax_save_sources()
 	if (is_array($raw_sources)) {
 		foreach ($raw_sources as $src) {
 			$url  = isset($src['url']) ? esc_url_raw(trim($src['url'])) : '';
-			$type = isset($src['type']) && in_array($src['type'], array('rss', 'webpage', 'trending', 'news_search'), true) ? $src['type'] : 'rss';
+			$type = isset($src['type']) && in_array($src['type'], array('rss', 'webpage', 'trending', 'news_search', 'ai_search'), true) ? $src['type'] : 'rss';
 
-			// trending 和 news_search 不需要 URL，只有 rss/webpage 要求 URL。
-			if (empty($url) && 'trending' !== $type && 'news_search' !== $type) {
+			// trending / news_search / ai_search 不需要 URL，只有 rss/webpage 要求 URL。
+			if (empty($url) && 'trending' !== $type && 'news_search' !== $type && 'ai_search' !== $type) {
 				continue;
 			}
 
@@ -986,6 +1088,19 @@ function abcc_ajax_save_sources()
 				$entry['query']    = $query;
 				$entry['language'] = isset($src['language']) ? sanitize_text_field($src['language']) : 'zh-CN';
 				$entry['region']   = isset($src['region']) ? sanitize_text_field($src['region']) : 'CN';
+			}
+
+			if ('ai_search' === $type) {
+				$query = isset($src['query']) ? sanitize_text_field($src['query']) : '';
+				if ('' === $query) {
+					continue; // 没主题的 ai_search 条目直接丢弃。
+				}
+				$ai_model = isset($src['ai_model']) ? sanitize_text_field($src['ai_model']) : 'sonar';
+				if (! in_array($ai_model, array('sonar', 'sonar-pro', 'sonar-reasoning-pro'), true)) {
+					$ai_model = 'sonar';
+				}
+				$entry['query']    = $query;
+				$entry['ai_model'] = $ai_model;
 			}
 
 			$sources[] = $entry;
@@ -1014,12 +1129,16 @@ function abcc_ajax_fetch_source_preview()
 	$query    = isset($_POST['query']) ? sanitize_text_field(wp_unslash($_POST['query'])) : '';
 	$language = isset($_POST['language']) ? sanitize_text_field(wp_unslash($_POST['language'])) : 'zh-CN';
 	$region   = isset($_POST['region']) ? sanitize_text_field(wp_unslash($_POST['region'])) : 'CN';
+	$ai_model = isset($_POST['ai_model']) ? sanitize_text_field(wp_unslash($_POST['ai_model'])) : 'sonar';
 
-	if (empty($url) && 'trending' !== $type && 'news_search' !== $type) {
+	if (empty($url) && 'trending' !== $type && 'news_search' !== $type && 'ai_search' !== $type) {
 		wp_send_json_error(array('message' => __('URL 不能为空。', 'automated-blog-content-creator')));
 	}
 	if ('news_search' === $type && '' === $query) {
 		wp_send_json_error(array('message' => __('Google 新闻搜索需要填写关键词。', 'automated-blog-content-creator')));
+	}
+	if ('ai_search' === $type && '' === $query) {
+		wp_send_json_error(array('message' => __('Perplexity AI 研究需要填写主题。', 'automated-blog-content-creator')));
 	}
 
 	$source = array(
@@ -1030,6 +1149,7 @@ function abcc_ajax_fetch_source_preview()
 		'query'    => $query,
 		'language' => $language,
 		'region'   => $region,
+		'ai_model' => $ai_model,
 	);
 
 	$items = abcc_fetch_source_content($source);

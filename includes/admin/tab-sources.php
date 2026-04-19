@@ -29,6 +29,7 @@ $sources = abcc_get_content_sources();
                             if ('rss' === $source['type']) echo 'RSS';
                             elseif ('trending' === $source['type']) esc_html_e('热点新闻', 'automated-blog-content-creator');
                             elseif ('news_search' === $source['type']) esc_html_e('Google 新闻搜索', 'automated-blog-content-creator');
+                            elseif ('ai_search' === $source['type']) esc_html_e('Perplexity AI 研究', 'automated-blog-content-creator');
                             else esc_html_e('网页', 'automated-blog-content-creator');
                             ?>
                         </span>
@@ -41,7 +42,7 @@ $sources = abcc_get_content_sources();
                             <?php esc_html_e('来源名称', 'automated-blog-content-creator'); ?>
                             <input type="text" class="abcc-source-name" value="<?php echo esc_attr($source['name']); ?>" placeholder="<?php esc_attr_e('例如：36氪科技', 'automated-blog-content-creator'); ?>">
                         </label>
-                        <label class="abcc-source-url-label" style="<?php echo in_array($source['type'], array('trending', 'news_search'), true) ? 'display:none;' : ''; ?>">
+                        <label class="abcc-source-url-label" style="<?php echo in_array($source['type'], array('trending', 'news_search', 'ai_search'), true) ? 'display:none;' : ''; ?>">
                             <?php esc_html_e('来源地址', 'automated-blog-content-creator'); ?>
                             <input type="url" class="abcc-source-url" value="<?php echo esc_attr($source['url']); ?>" placeholder="https://">
                         </label>
@@ -50,13 +51,22 @@ $sources = abcc_get_content_sources();
                             <select class="abcc-source-type">
                                 <option value="rss" <?php selected($source['type'], 'rss'); ?>>RSS 订阅</option>
                                 <option value="news_search" <?php selected($source['type'], 'news_search'); ?>><?php esc_html_e('Google 新闻搜索（关键词）', 'automated-blog-content-creator'); ?></option>
+                                <option value="ai_search" <?php selected($source['type'], 'ai_search'); ?>><?php esc_html_e('Perplexity AI 研究（主题）', 'automated-blog-content-creator'); ?></option>
                                 <option value="webpage" <?php selected($source['type'], 'webpage'); ?>><?php esc_html_e('网页', 'automated-blog-content-creator'); ?></option>
                                 <option value="trending" <?php selected($source['type'], 'trending'); ?>><?php esc_html_e('热点新闻', 'automated-blog-content-creator'); ?></option>
                             </select>
                         </label>
-                        <label class="abcc-source-query-label" style="<?php echo 'news_search' === $source['type'] ? '' : 'display:none;'; ?>">
-                            <?php esc_html_e('搜索关键词', 'automated-blog-content-creator'); ?>
+                        <label class="abcc-source-query-label" style="<?php echo in_array($source['type'], array('news_search', 'ai_search'), true) ? '' : 'display:none;'; ?>">
+                            <?php esc_html_e('搜索关键词/主题', 'automated-blog-content-creator'); ?>
                             <input type="text" class="abcc-source-query" value="<?php echo esc_attr($source['query'] ?? ''); ?>" placeholder="<?php esc_attr_e('例如：NBA、英超、世界杯', 'automated-blog-content-creator'); ?>">
+                        </label>
+                        <label class="abcc-source-ai-model-label" style="<?php echo 'ai_search' === $source['type'] ? '' : 'display:none;'; ?>">
+                            <?php esc_html_e('Perplexity 模型', 'automated-blog-content-creator'); ?>
+                            <select class="abcc-source-ai-model">
+                                <option value="sonar" <?php selected($source['ai_model'] ?? 'sonar', 'sonar'); ?>>Sonar（快 · 便宜）</option>
+                                <option value="sonar-pro" <?php selected($source['ai_model'] ?? 'sonar', 'sonar-pro'); ?>>Sonar Pro（更多检索结果）</option>
+                                <option value="sonar-reasoning-pro" <?php selected($source['ai_model'] ?? 'sonar', 'sonar-reasoning-pro'); ?>>Sonar Reasoning Pro（深度）</option>
+                            </select>
                         </label>
                         <label class="abcc-source-language-label" style="<?php echo 'news_search' === $source['type'] ? '' : 'display:none;'; ?>">
                             <?php esc_html_e('语言', 'automated-blog-content-creator'); ?>
@@ -134,13 +144,22 @@ $sources = abcc_get_content_sources();
                 <select class="abcc-source-type">
                     <option value="rss">RSS 订阅</option>
                     <option value="news_search"><?php esc_html_e('Google 新闻搜索（关键词）', 'automated-blog-content-creator'); ?></option>
+                    <option value="ai_search"><?php esc_html_e('Perplexity AI 研究（主题）', 'automated-blog-content-creator'); ?></option>
                     <option value="webpage"><?php esc_html_e('网页', 'automated-blog-content-creator'); ?></option>
                     <option value="trending"><?php esc_html_e('热点新闻', 'automated-blog-content-creator'); ?></option>
                 </select>
             </label>
             <label class="abcc-source-query-label" style="display:none;">
-                <?php esc_html_e('搜索关键词', 'automated-blog-content-creator'); ?>
+                <?php esc_html_e('搜索关键词/主题', 'automated-blog-content-creator'); ?>
                 <input type="text" class="abcc-source-query" value="" placeholder="<?php esc_attr_e('例如：NBA、英超、世界杯', 'automated-blog-content-creator'); ?>">
+            </label>
+            <label class="abcc-source-ai-model-label" style="display:none;">
+                <?php esc_html_e('Perplexity 模型', 'automated-blog-content-creator'); ?>
+                <select class="abcc-source-ai-model">
+                    <option value="sonar">Sonar（快 · 便宜）</option>
+                    <option value="sonar-pro">Sonar Pro（更多检索结果）</option>
+                    <option value="sonar-reasoning-pro">Sonar Reasoning Pro（深度）</option>
+                </select>
             </label>
             <label class="abcc-source-language-label" style="display:none;">
                 <?php esc_html_e('语言', 'automated-blog-content-creator'); ?>
@@ -233,6 +252,11 @@ $sources = abcc_get_content_sources();
     .abcc-type-news_search {
         background: #e2d6f7;
         color: #4a148c;
+    }
+
+    .abcc-type-ai_search {
+        background: #d4edda;
+        color: #155724;
     }
 
     .abcc-source-status.enabled {
@@ -349,6 +373,7 @@ $sources = abcc_get_content_sources();
                     query: $item.find('.abcc-source-query').val() || '',
                     language: $item.find('.abcc-source-language').val() || 'zh-CN',
                     region: $item.find('.abcc-source-region').val() || 'CN',
+                    ai_model: $item.find('.abcc-source-ai-model').val() || 'sonar',
                     category: $item.find('select[name^="abcc_source_category"]').val() || 0,
                     enabled: $item.find('.abcc-source-enabled').is(':checked') ? 1 : 0
                 });
@@ -388,7 +413,8 @@ $sources = abcc_get_content_sources();
                 platform: $item.find('.abcc-source-platform').val() || 'baidu',
                 query: $item.find('.abcc-source-query').val() || '',
                 language: $item.find('.abcc-source-language').val() || 'zh-CN',
-                region: $item.find('.abcc-source-region').val() || 'CN'
+                region: $item.find('.abcc-source-region').val() || 'CN',
+                ai_model: $item.find('.abcc-source-ai-model').val() || 'sonar'
             }, function(resp) {
                 $btn.prop('disabled', false).text('<?php echo esc_js(__('预览采集', 'automated-blog-content-creator')); ?>');
                 if (resp.success && resp.data.items) {
@@ -442,24 +468,28 @@ $sources = abcc_get_content_sources();
             });
         });
 
-        // Toggle URL / platform / news_search fields based on source type.
+        // Toggle URL / platform / news_search / ai_search fields based on source type.
         $list.on('change', '.abcc-source-type', function() {
             var $item = $(this).closest('.abcc-source-item');
             var type = $(this).val();
             var isTrending = type === 'trending';
             var isNewsSearch = type === 'news_search';
-            var needsUrl = !isTrending && !isNewsSearch;
+            var isAiSearch = type === 'ai_search';
+            var needsUrl = !isTrending && !isNewsSearch && !isAiSearch;
+            var needsQuery = isNewsSearch || isAiSearch;
             $item.find('.abcc-source-url-label').toggle(needsUrl);
             $item.find('.abcc-source-platform-label').toggle(isTrending);
-            $item.find('.abcc-source-query-label').toggle(isNewsSearch);
+            $item.find('.abcc-source-query-label').toggle(needsQuery);
             $item.find('.abcc-source-language-label').toggle(isNewsSearch);
             $item.find('.abcc-source-region-label').toggle(isNewsSearch);
+            $item.find('.abcc-source-ai-model-label').toggle(isAiSearch);
             // Update badge.
             var $badge = $item.find('.abcc-source-type-badge');
-            $badge.removeClass('abcc-type-rss abcc-type-webpage abcc-type-trending abcc-type-news_search').addClass('abcc-type-' + type);
+            $badge.removeClass('abcc-type-rss abcc-type-webpage abcc-type-trending abcc-type-news_search abcc-type-ai_search').addClass('abcc-type-' + type);
             if (type === 'rss') $badge.text('RSS');
             else if (type === 'trending') $badge.text('热点新闻');
             else if (type === 'news_search') $badge.text('Google 新闻搜索');
+            else if (type === 'ai_search') $badge.text('Perplexity AI 研究');
             else $badge.text('网页');
         });
     });
