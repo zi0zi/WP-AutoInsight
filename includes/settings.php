@@ -78,9 +78,8 @@ function abcc_get_settings_schema()
 			'abcc_supported_audio_formats'    => array('default' => array('mp3', 'wav', 'm4a', 'webm')),
 			'abcc_transcription_language'     => array('default' => 'en'),
 			'abcc_content_sources'            => array('default' => array()),
-			'abcc_random_publish'             => array('default' => false),
-			'abcc_publish_time_start'         => array('default' => '08:00'),
-			'abcc_publish_time_end'           => array('default' => '22:00'),
+			// 自定义定时发布：当 openai_auto_create='custom_times' 时，按这里列出的 HH:MM 每日触发生成+立即发布。
+			'abcc_custom_schedule_times'      => array('default' => '09:00,14:00,20:00'),
 			// Brand Kit — keywords/brand推广插入。
 			'abcc_brand_enabled'              => array('default' => false),
 			'abcc_brand_name'                 => array('default' => ''),
@@ -303,10 +302,6 @@ function abcc_run_settings_migrations()
 		if (true === (bool) get_option('abcc_draft_first', true)) {
 			abcc_update_setting('abcc_draft_first', false);
 		}
-		// 老默认 abcc_random_publish=false。升级后推为 true，让发布时间更自然分散。
-		if (false === (bool) get_option('abcc_random_publish', false)) {
-			abcc_update_setting('abcc_random_publish', true);
-		}
 		$installed_version = '4.1.0';
 		abcc_update_setting('abcc_version', $installed_version);
 	}
@@ -324,11 +319,6 @@ function abcc_run_settings_migrations()
 	}
 
 	if (version_compare($installed_version, '4.1.2', '<')) {
-		// 4.1.0 时我把 abcc_random_publish 自动置 true 是错的——它并不是"立即发布"，
-		// 而是"先存草稿、调度 WP-Cron 到窗口内随机时段再发布"，导致用户看到的始终是草稿。
-		// 这里统一把它清回 false，让生成后直接 publish。想随机时段的用户可自己到后台重新打开。
-		abcc_update_setting('abcc_random_publish', false);
-
 		$installed_version = '4.1.2';
 		abcc_update_setting('abcc_version', $installed_version);
 	}
@@ -351,6 +341,17 @@ function abcc_run_settings_migrations()
 		}
 
 		$installed_version = '4.1.4';
+		abcc_update_setting('abcc_version', $installed_version);
+	}
+
+	if (version_compare($installed_version, '4.3.0', '<')) {
+		// 4.3.0 移除 Random Time Publishing：清理老选项 + 残留的 single-event cron。
+		delete_option('abcc_random_publish');
+		delete_option('abcc_publish_time_start');
+		delete_option('abcc_publish_time_end');
+		wp_clear_scheduled_hook('abcc_publish_scheduled_post');
+
+		$installed_version = '4.3.0';
 		abcc_update_setting('abcc_version', $installed_version);
 	}
 

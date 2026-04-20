@@ -165,37 +165,20 @@ if (! defined('ABSPATH')) {
 						<input type="checkbox" name="abcc_draft_first" id="abcc_draft_first" value="1" <?php checked(abcc_get_setting('abcc_draft_first', true)); ?>>
 						<?php esc_html_e('Always save as draft for review before publishing', 'automated-blog-content-creator'); ?>
 					</label>
-					<p class="description"><?php esc_html_e('When enabled, new posts will be created as drafts. Recommended for quality control.', 'automated-blog-content-creator'); ?></p>
-				</td>
-			</tr>
-			<tr id="abcc-random-publish-row" style="<?php echo abcc_get_setting('abcc_draft_first', true) ? 'display:none;' : ''; ?>">
-				<th scope="row"><?php esc_html_e('Random Time Publishing', 'automated-blog-content-creator'); ?><?php echo wp_kses_post(abcc_get_tooltip_html(__('Posts will be created as drafts and automatically published at a random time within the configured window to avoid bot detection.', 'automated-blog-content-creator'))); ?></th>
-				<td>
-					<label for="abcc_random_publish">
-						<input type="checkbox" name="abcc_random_publish" id="abcc_random_publish" value="1" <?php checked(abcc_get_setting('abcc_random_publish', false)); ?>>
-						<?php esc_html_e('Enable random time auto-publish', 'automated-blog-content-creator'); ?>
-					</label>
-					<div id="abcc-publish-time-range" style="margin-top: 10px; <?php echo abcc_get_setting('abcc_random_publish', false) ? '' : 'display:none;'; ?>">
-						<label><?php esc_html_e('Publish window:', 'automated-blog-content-creator'); ?></label>
-						<input type="time" name="abcc_publish_time_start" id="abcc_publish_time_start" value="<?php echo esc_attr(abcc_get_setting('abcc_publish_time_start', '08:00')); ?>">
-						<span> — </span>
-						<input type="time" name="abcc_publish_time_end" id="abcc_publish_time_end" value="<?php echo esc_attr(abcc_get_setting('abcc_publish_time_end', '22:00')); ?>">
-					</div>
-					<p class="description"><?php esc_html_e('Posts will be auto-published at a random time within this window. Supports cross-midnight ranges (e.g. 22:00-06:00).', 'automated-blog-content-creator'); ?></p>
+					<p class="description">
+						<?php esc_html_e('When enabled, new posts will be created as drafts. Recommended for quality control.', 'automated-blog-content-creator'); ?>
+						<br>
+						<?php
+						printf(
+							/* translators: %s: link to advanced schedule setting */
+							esc_html__('To automate publishing at specific times of day, use %s in Advanced Settings instead.', 'automated-blog-content-creator'),
+							'<a href="?page=automated-blog-content-creator-post&tab=advanced-settings#scheduling-settings">' . esc_html__('Schedule post creation → Custom Times', 'automated-blog-content-creator') . '</a>'
+						);
+						?>
+					</p>
 				</td>
 			</tr>
 		</table>
-		<script>
-			jQuery(function($) {
-				$('#abcc_draft_first').on('change', function() {
-					$('#abcc-random-publish-row').toggle(!this.checked);
-					if (this.checked) $('#abcc_random_publish').prop('checked', false).trigger('change');
-				});
-				$('#abcc_random_publish').on('change', function() {
-					$('#abcc-publish-time-range').toggle(this.checked);
-				});
-			});
-		</script>
 		<?php submit_button(); ?>
 	</form>
 

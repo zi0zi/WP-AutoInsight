@@ -425,8 +425,43 @@ if (! defined('ABSPATH')) {
 						<option value="weekly" <?php selected($auto_create, 'weekly'); ?>>
 							<?php esc_html_e('Weekly', 'automated-blog-content-creator'); ?>
 						</option>
+						<option value="custom_times" <?php selected($auto_create, 'custom_times'); ?>>
+							<?php esc_html_e('Custom Times (specify HH:MM slots)', 'automated-blog-content-creator'); ?>
+						</option>
 					</select>
 					<p class="description"><?php esc_html_e('You can disable the automatic creation of posts or schedule as you wish', 'automated-blog-content-creator'); ?></p>
+
+					<?php
+					$custom_times_raw  = abcc_get_setting('abcc_custom_schedule_times', '09:00,14:00,20:00');
+					$parsed_slots      = function_exists('abcc_parse_custom_schedule_times') ? abcc_parse_custom_schedule_times($custom_times_raw) : array();
+					$custom_times_disp = implode(', ', $parsed_slots);
+					?>
+					<div id="abcc-custom-times-row" style="margin-top: 12px; <?php echo 'custom_times' === $auto_create ? '' : 'display:none;'; ?>">
+						<label for="abcc_custom_schedule_times">
+							<strong><?php esc_html_e('Daily publish times', 'automated-blog-content-creator'); ?></strong>
+						</label><br>
+						<input type="text" id="abcc_custom_schedule_times" name="abcc_custom_schedule_times"
+							class="regular-text"
+							value="<?php echo esc_attr($custom_times_raw); ?>"
+							placeholder="09:00, 14:00, 20:00">
+						<p class="description">
+							<?php esc_html_e('Comma-separated 24h HH:MM times. Each slot fires once per day; articles are generated and published immediately at those times (no draft queue).', 'automated-blog-content-creator'); ?>
+							<?php if (! empty($parsed_slots)) : ?>
+								<br><em><?php printf(
+									/* translators: %s: parsed slots list */
+									esc_html__('Parsed slots: %s', 'automated-blog-content-creator'),
+									esc_html($custom_times_disp)
+								); ?></em>
+							<?php endif; ?>
+						</p>
+					</div>
+					<script>
+						jQuery(function($) {
+							$('#openai_auto_create').on('change', function() {
+								$('#abcc-custom-times-row').toggle(this.value === 'custom_times');
+							});
+						});
+					</script>
 				</td>
 			</tr>
 

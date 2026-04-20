@@ -17,6 +17,11 @@ if (! defined('ABSPATH')) {
  */
 function abcc_get_openai_event_schedule()
 {
+	// 优先展示 custom_times 的下一次 slot——用户启用此模式时不会再有 recurring hook。
+	if ('custom_times' === get_option('openai_auto_create', 'none')) {
+		return abcc_get_custom_schedule_info();
+	}
+
 	$timestamp = wp_next_scheduled('abcc_openai_generate_post_hook');
 
 	if (false === $timestamp) {
@@ -144,19 +149,131 @@ function abcc_openai_generate_post_scheduled()
 
 /**
  * Schedule or unschedule the event based on the selected option.
+ *
+ * Supported modes:
+ *   - none / ''       : no automation
+ *   - hourly/daily/weekly : classic recurring cron
+ *   - custom_times    : chained single-event crons fired at each HH:MM slot from
+ *                       abcc_custom_schedule_times (daily rollover)
  */
 function abcc_schedule_openai_event()
 {
 	$selected_option = get_option('openai_auto_create', 'none');
 
-	// Unscheduling the event if it was scheduled previously.
+	// Clear both schedules before re-establishing.
 	wp_clear_scheduled_hook('abcc_openai_generate_post_hook');
+	wp_clear_scheduled_hook('abcc_openai_generate_post_slot_hook');
 
-	// Scheduling the event based on the selected option.
-	if ('none' !== $selected_option) {
-		$schedule_interval = ('hourly' === $selected_option) ? 'hourly' : (('weekly' === $selected_option) ? 'weekly' : 'daily');
-		wp_schedule_event(time(), $schedule_interval, 'abcc_openai_generate_post_hook');
+	if ('none' === $selected_option || '' === $selected_option) {
+		return;
 	}
+
+	if ('custom_times' === $selected_option) {
+		$next_ts = abcc_get_next_custom_schedule_timestamp();
+		if ($next_ts) {
+			wp_schedule_single_event($next_ts, 'abcc_openai_generate_post_slot_hook');
+		}
+		return;
+	}
+
+	$schedule_interval = ('hourly' === $selected_option) ? 'hourly' : (('weekly' === $selected_option) ? 'weekly' : 'daily');
+	wp_schedule_event(time(), $schedule_interval, 'abcc_openai_generate_post_hook');
+}
+
+/**
+ * Parse the user-configured custom schedule times string into a sorted unique HH:MM list.
+ *
+ * Input may be comma- / newline- / space-separated; invalid entries are dropped.
+ *
+ * @return string[] e.g. ['09:00','14:00','20:00'] — may be empty.
+ */
+function abcc_parse_custom_schedule_times($raw = null)
+{
+	if (null === $raw) {
+		$raw = abcc_get_setting('abcc_custom_schedule_times', '09:00,14:00,20:00');
+	}
+	$raw   = (string) $raw;
+	$parts = preg_split('/[\s,;]+/', $raw);
+	$out   = array();
+	foreach ((array) $parts as $p) {
+		$p = trim($p);
+		if ('' === $p) {
+			continue;
+		}
+		if (! preg_match('/^([0-1]?\d|2[0-3]):([0-5]\d)$/', $p, $m)) {
+			continue;
+		}
+		$out[] = sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+	}
+	$out = array_values(array_unique($out));
+	sort($out);
+	return $out;
+}
+
+/**
+ * Return the next upcoming timestamp (in the WP timezone) that matches one of the
+ * configured custom schedule slots. Returns false if the list is empty.
+ *
+ * @return int|false
+ */
+function abcc_get_next_custom_schedule_timestamp()
+{
+	$slots = abcc_parse_custom_schedule_times();
+	if (empty($slots)) {
+		return false;
+	}
+
+	$tz  = wp_timezone();
+	$now = new DateTimeImmutable('now', $tz);
+
+	foreach ($slots as $slot) {
+		list($h, $m) = array_map('intval', explode(':', $slot));
+		$candidate   = $now->setTime($h, $m, 0);
+		if ($candidate > $now) {
+			return $candidate->getTimestamp();
+		}
+	}
+
+	// All slots have passed today — roll to the first slot tomorrow.
+	list($h, $m) = array_map('intval', explode(':', $slots[0]));
+	$tomorrow    = $now->modify('+1 day')->setTime($h, $m, 0);
+	return $tomorrow->getTimestamp();
+}
+
+/**
+ * Handler for each custom-time slot firing — generates a post then queues the next slot.
+ */
+function abcc_openai_generate_post_slot()
+{
+	abcc_openai_generate_post_scheduled();
+
+	// Always re-arm for the next slot, even if the run failed, so automation keeps going.
+	if ('custom_times' === get_option('openai_auto_create', 'none')) {
+		$next_ts = abcc_get_next_custom_schedule_timestamp();
+		if ($next_ts) {
+			wp_schedule_single_event($next_ts, 'abcc_openai_generate_post_slot_hook');
+		}
+	}
+}
+add_action('abcc_openai_generate_post_slot_hook', 'abcc_openai_generate_post_slot');
+
+/**
+ * Return the next scheduled custom-times fire, for the admin status banner.
+ *
+ * @return array|false Matching the structure of abcc_get_openai_event_schedule().
+ */
+function abcc_get_custom_schedule_info()
+{
+	$ts = wp_next_scheduled('abcc_openai_generate_post_slot_hook');
+	if (! $ts) {
+		return false;
+	}
+	return array(
+		'scheduled' => true,
+		'schedule'  => 'custom_times',
+		'next_run'  => date_i18n('Y-m-d H:i', $ts),
+		'timestamp' => $ts,
+	);
 }
 
 /**
@@ -192,90 +309,7 @@ function abcc_send_post_notification($post_id)
 
 // Schedule or unschedule the event when the option is updated.
 add_action('update_option_openai_auto_create', 'abcc_schedule_openai_event');
+add_action('update_option_abcc_custom_schedule_times', 'abcc_schedule_openai_event');
 
 // Trigger the OpenAI post generation.
 add_action('abcc_openai_generate_post_hook', 'abcc_openai_generate_post_scheduled');
-
-/**
- * Schedule a post to be published at a random time within the configured window.
- *
- * @since 3.9.0
- * @param int $post_id The post ID to schedule for publishing.
- * @return bool Whether the event was scheduled successfully.
- */
-function abcc_schedule_random_publish($post_id)
-{
-	$start_time = abcc_get_setting('abcc_publish_time_start', '08:00');
-	$end_time   = abcc_get_setting('abcc_publish_time_end', '22:00');
-
-	$wp_timezone = wp_timezone();
-	$now         = new DateTimeImmutable('now', $wp_timezone);
-
-	// Parse start/end times for today.
-	list($start_h, $start_m) = array_map('intval', explode(':', $start_time));
-	list($end_h, $end_m)     = array_map('intval', explode(':', $end_time));
-
-	$today_start = $now->setTime($start_h, $start_m, 0);
-	$today_end   = $now->setTime($end_h, $end_m, 0);
-
-	// Handle cross-midnight ranges (e.g. 22:00 - 06:00).
-	if ($today_end <= $today_start) {
-		$today_end = $today_end->modify('+1 day');
-	}
-
-	// If we're past the window, shift to tomorrow.
-	if ($now > $today_end) {
-		$today_start = $today_start->modify('+1 day');
-		$today_end   = $today_end->modify('+1 day');
-	}
-
-	// If we're within the window, use now as the earliest time.
-	if ($now > $today_start && $now < $today_end) {
-		$today_start = $now;
-	}
-
-	// Generate random timestamp within the window.
-	$start_ts  = $today_start->getTimestamp();
-	$end_ts    = $today_end->getTimestamp();
-	$random_ts = wp_rand($start_ts, $end_ts);
-
-	// Store the scheduled time in post meta for display purposes.
-	$scheduled_dt = (new DateTimeImmutable('@' . $random_ts))->setTimezone($wp_timezone);
-	update_post_meta($post_id, '_abcc_scheduled_publish_at', $scheduled_dt->format('Y-m-d H:i:s'));
-
-	// Schedule the one-time cron event.
-	wp_schedule_single_event($random_ts, 'abcc_publish_scheduled_post', array($post_id));
-
-	return true;
-}
-
-/**
- * Publish a post that was scheduled for random-time publishing.
- *
- * @since 3.9.0
- * @param int $post_id The post ID to publish.
- * @return void
- */
-function abcc_do_publish_scheduled_post($post_id)
-{
-	$post_id = absint($post_id);
-	$post    = get_post($post_id);
-
-	if (! $post) {
-		return;
-	}
-
-	// Only publish if still a draft (user may have manually published/trashed it).
-	if ('draft' !== $post->post_status) {
-		return;
-	}
-
-	wp_publish_post($post_id);
-	delete_post_meta($post_id, '_abcc_scheduled_publish_at');
-
-	// Send notification if enabled.
-	if (true === abcc_get_setting('openai_email_notifications', false)) {
-		abcc_send_post_notification($post_id);
-	}
-}
-add_action('abcc_publish_scheduled_post', 'abcc_do_publish_scheduled_post');

@@ -176,14 +176,6 @@ function abcc_openai_text_settings_page()
 				abcc_update_setting('openai_generate_seo', $openai_generate_seo);
 				abcc_update_setting('abcc_draft_first', $abcc_draft_first);
 				abcc_update_setting('abcc_selected_post_types', $selected_post_types);
-
-				// Random publish settings.
-				$random_publish     = isset($_POST['abcc_random_publish']);
-				$publish_time_start = isset($_POST['abcc_publish_time_start']) ? sanitize_text_field(wp_unslash($_POST['abcc_publish_time_start'])) : '08:00';
-				$publish_time_end   = isset($_POST['abcc_publish_time_end']) ? sanitize_text_field(wp_unslash($_POST['abcc_publish_time_end'])) : '22:00';
-				abcc_update_setting('abcc_random_publish', $random_publish);
-				abcc_update_setting('abcc_publish_time_start', $publish_time_start);
-				abcc_update_setting('abcc_publish_time_end', $publish_time_end);
 				break;
 
 			case 'model-settings':
@@ -203,6 +195,7 @@ function abcc_openai_text_settings_page()
 				$perplexity_citation_style  = isset($_POST['abcc_perplexity_citation_style']) ? sanitize_text_field(wp_unslash($_POST['abcc_perplexity_citation_style'])) : 'inline';
 				$perplexity_recency_filter  = isset($_POST['abcc_perplexity_recency_filter']) ? sanitize_text_field(wp_unslash($_POST['abcc_perplexity_recency_filter'])) : '';
 				$auto_create                = isset($_POST['openai_auto_create']) ? sanitize_text_field(wp_unslash($_POST['openai_auto_create'])) : '';
+				$custom_schedule_times      = isset($_POST['abcc_custom_schedule_times']) ? sanitize_text_field(wp_unslash($_POST['abcc_custom_schedule_times'])) : '09:00,14:00,20:00';
 				$char_limit                 = isset($_POST['openai_char_limit']) ? absint($_POST['openai_char_limit']) : 200;
 				$openai_email_notifications = isset($_POST['openai_email_notifications']);
 				$openai_generate_images     = isset($_POST['openai_generate_images']);
@@ -221,6 +214,7 @@ function abcc_openai_text_settings_page()
 				abcc_update_setting('abcc_perplexity_citation_style', $perplexity_citation_style);
 				abcc_update_setting('abcc_perplexity_recency_filter', $perplexity_recency_filter);
 				abcc_update_setting('openai_auto_create', $auto_create);
+				abcc_update_setting('abcc_custom_schedule_times', $custom_schedule_times);
 				abcc_update_setting('openai_char_limit', $char_limit);
 				abcc_update_setting('openai_email_notifications', $openai_email_notifications);
 				abcc_update_setting('openai_generate_images', $openai_generate_images);
