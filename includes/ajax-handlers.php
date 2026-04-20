@@ -527,12 +527,14 @@ function abcc_handle_clear_job_log()
 		return;
 	}
 
+	// 'any' 会排除 trash/auto-draft —— 这里要彻底清空，显式列出所有状态。
 	$jobs = get_posts(
 		array(
-			'post_type'      => ABCC_Job::POST_TYPE,
-			'post_status'    => 'any',
-			'posts_per_page' => -1,
-			'fields'         => 'ids',
+			'post_type'        => ABCC_Job::POST_TYPE,
+			'post_status'      => array('publish', 'draft', 'pending', 'private', 'future', 'trash', 'auto-draft'),
+			'posts_per_page'   => -1,
+			'fields'           => 'ids',
+			'suppress_filters' => true,
 		)
 	);
 

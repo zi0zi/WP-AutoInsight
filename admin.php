@@ -367,9 +367,6 @@ function abcc_openai_text_settings_page()
 			<a href="?page=automated-blog-content-creator-post&tab=brand-kit" class="nav-tab <?php echo $current_tab === 'brand-kit' ? 'nav-tab-active' : ''; ?>">
 				<?php esc_html_e('Brand Kit', 'automated-blog-content-creator'); ?>
 			</a>
-			<a href="?page=automated-blog-content-creator-post&tab=about" class="nav-tab <?php echo $current_tab === 'about' ? 'nav-tab-active' : ''; ?>">
-				<?php esc_html_e('About', 'automated-blog-content-creator'); ?>
-			</a>
 		</nav>
 
 		<div class="tab-content">
@@ -379,8 +376,6 @@ function abcc_openai_text_settings_page()
 				<?php include plugin_dir_path(__FILE__) . 'includes/admin/tab-models.php'; ?>
 			<?php elseif ($current_tab === 'advanced-settings') : ?>
 				<?php include plugin_dir_path(__FILE__) . 'includes/admin/tab-advanced.php'; ?>
-			<?php elseif ($current_tab === 'about') : ?>
-				<?php include plugin_dir_path(__FILE__) . 'includes/admin/tab-about.php'; ?>
 			<?php elseif ($current_tab === 'audio-settings') : ?>
 				<?php include plugin_dir_path(__FILE__) . 'includes/admin/tab-audio.php'; ?>
 			<?php elseif ($current_tab === 'content-sources') : ?>
