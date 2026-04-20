@@ -134,13 +134,80 @@ function abcc_gemini_generate_text( $api_key, $prompt, $requested_tokens, $model
 		$text_array = explode( PHP_EOL, $response->text() );
 		return $text_array;
 	} catch ( \Exception $e ) {
-		error_log( 'Gemini API Error: ' . $e->getMessage() );
+		$raw = $e->getMessage();
+		error_log( 'Gemini API Error: ' . $raw );
 		if ( function_exists( 'abcc_last_ai_error' ) ) {
-			abcc_last_ai_error( 'Gemini: ' . $e->getMessage() );
+			abcc_last_ai_error( abcc_prettify_gemini_error( $raw ) );
 		}
-		handle_api_request_error( $e->getMessage(), 'Gemini' );
+		handle_api_request_error( $raw, 'Gemini' );
 		return false;
 	}
+}
+
+/**
+ * 把 GeminiAPI SDK 抛的异常消息提炼成人类可读的一行错误。
+ *
+ * 原文形如：
+ *   Gemini API operation failed: operation=..., status_code=429, response={ "error": {...} }
+ * 429 配额用尽的情况还包含 retryDelay / quotaId。把这些抽出来，
+ * 避免把整块 JSON 直接回显给用户。
+ *
+ * @param string $raw SDK 异常的原始 message。
+ * @return string 精简后的错误文案。
+ */
+function abcc_prettify_gemini_error( $raw ) {
+	$raw = (string) $raw;
+
+	// 提取 HTTP 状态码。
+	$status = '';
+	if ( preg_match( '/status_code=(\d+)/', $raw, $m ) ) {
+		$status = $m[1];
+	}
+
+	// 尝试把 response={...} 这块 JSON 摘出来再解析。
+	$api_message = '';
+	$retry       = '';
+	$quota_model = '';
+	if ( preg_match( '/response=(\{.*\})\s*$/s', $raw, $m ) ) {
+		$json = json_decode( $m[1], true );
+		if ( is_array( $json ) ) {
+			if ( isset( $json['error']['message'] ) ) {
+				// 只取第一句话（遇到第一个句号/换行就截断），够用即可。
+				$msg         = (string) $json['error']['message'];
+				$first_break = strcspn( $msg, "\n" );
+				$api_message = trim( substr( $msg, 0, $first_break ) );
+			}
+			if ( isset( $json['error']['details'] ) && is_array( $json['error']['details'] ) ) {
+				foreach ( $json['error']['details'] as $detail ) {
+					if ( isset( $detail['@type'] ) && false !== strpos( $detail['@type'], 'RetryInfo' ) && isset( $detail['retryDelay'] ) ) {
+						$retry = (string) $detail['retryDelay'];
+					}
+					if ( isset( $detail['@type'] ) && false !== strpos( $detail['@type'], 'QuotaFailure' ) && isset( $detail['violations'][0]['quotaDimensions']['model'] ) ) {
+						$quota_model = (string) $detail['violations'][0]['quotaDimensions']['model'];
+					}
+				}
+			}
+		}
+	}
+
+	if ( '429' === $status ) {
+		$pieces = array( 'Gemini 配额已用尽' );
+		if ( '' !== $quota_model ) {
+			$pieces[] = sprintf( '模型 %s', $quota_model );
+		}
+		if ( '' !== $retry ) {
+			$pieces[] = sprintf( '请 %s 后再试', $retry );
+		}
+		$pieces[] = '或升级付费计划/切换到其它 provider';
+		return implode( '，', $pieces ) . '。';
+	}
+
+	if ( '' !== $api_message ) {
+		return sprintf( 'Gemini%s：%s', '' !== $status ? ' HTTP ' . $status : '', $api_message );
+	}
+
+	// 实在解析不出来就把前 200 字符截一下，别把整块 JSON 吐出去。
+	return 'Gemini: ' . mb_substr( $raw, 0, 200 );
 }
 
 /**
