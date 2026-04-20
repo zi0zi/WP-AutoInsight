@@ -384,10 +384,6 @@ function abcc_render_job_log_rows( $args = array() ) {
 	ob_start();
 
 	if ( empty( $jobs ) ) :
-		// No job records yet — fall back to legacy generated posts on unfiltered views.
-		if ( empty( $args['status'] ) && empty( $args['run_id'] ) ) {
-			return abcc_render_legacy_history_rows( (int) $args['posts_per_page'] );
-		}
 		?>
 		<tr>
 			<td colspan="8"><?php esc_html_e( 'No generation jobs found.', 'automated-blog-content-creator' ); ?></td>
@@ -470,87 +466,6 @@ function abcc_render_job_log_rows( $args = array() ) {
 					<?php else : ?>
 						&mdash;
 					<?php endif; ?>
-				</td>
-			</tr>
-			<?php
-		endforeach;
-	endif;
-
-	return (string) ob_get_clean();
-}
-
-/**
- * Render legacy generated-post rows for sites upgrading from pre-3.7.
- *
- * Queries posts with _abcc_generated=1 that predate the job system and renders
- * them in the 8-column job log format so the table is not blank after upgrade.
- *
- * @param int $limit Maximum rows to render.
- * @return string
- */
-function abcc_render_legacy_history_rows( $limit = 10 ) {
-	$posts = get_posts(
-		array(
-			'post_type'      => 'any',
-			'post_status'    => 'any',
-			'posts_per_page' => $limit,
-			'orderby'        => 'date',
-			'order'          => 'DESC',
-			'meta_key'       => '_abcc_generated',
-			'meta_value'     => '1',
-		)
-	);
-
-	ob_start();
-
-	if ( empty( $posts ) ) :
-		?>
-		<tr>
-			<td colspan="8"><?php esc_html_e( 'No generation jobs found.', 'automated-blog-content-creator' ); ?></td>
-		</tr>
-		<?php
-	else :
-		foreach ( $posts as $post ) :
-			$model    = get_post_meta( $post->ID, '_abcc_model', true );
-			$params   = json_decode( get_post_meta( $post->ID, '_abcc_generation_params', true ), true );
-			$keywords = isset( $params['keywords'] ) ? (array) $params['keywords'] : array();
-			$template = isset( $params['template'] ) ? $params['template'] : 'default';
-			?>
-			<tr>
-				<td>
-					<span class="abcc-job-status-badge abcc-job-status-badge--succeeded">
-						<?php esc_html_e( 'Succeeded', 'automated-blog-content-creator' ); ?>
-					</span>
-				</td>
-				<td><?php esc_html_e( 'Legacy', 'automated-blog-content-creator' ); ?></td>
-				<td><small><?php echo esc_html( $model ? $model : 'n/a' ); ?></small></td>
-				<td><small><?php echo esc_html( ! empty( $keywords ) ? implode( ', ', $keywords ) : 'n/a' ); ?></small></td>
-				<td><small><?php echo esc_html( $template ); ?></small></td>
-				<td><small><?php echo esc_html( get_the_date( 'Y-m-d H:i', $post ) ); ?></small></td>
-				<td>&mdash;</td>
-				<td>
-					<strong>
-						<a href="<?php echo esc_url( get_edit_post_link( $post->ID ) ); ?>">
-							<?php echo esc_html( $post->post_title ); ?>
-						</a>
-					</strong>
-					<div class="row-actions">
-						<span class="edit">
-							<a href="<?php echo esc_url( get_edit_post_link( $post->ID ) ); ?>">
-								<?php esc_html_e( 'Edit', 'automated-blog-content-creator' ); ?>
-							</a> |
-						</span>
-						<span class="view">
-							<a href="<?php echo esc_url( get_permalink( $post->ID ) ); ?>" target="_blank" rel="noopener noreferrer">
-								<?php esc_html_e( 'View', 'automated-blog-content-creator' ); ?>
-							</a> |
-						</span>
-						<span class="abcc-regenerate-row">
-							<a href="#" class="abcc-regenerate-post" data-post-id="<?php echo esc_attr( $post->ID ); ?>">
-								<?php esc_html_e( 'Regenerate', 'automated-blog-content-creator' ); ?>
-							</a>
-						</span>
-					</div>
 				</td>
 			</tr>
 			<?php
