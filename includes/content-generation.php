@@ -176,8 +176,7 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 		$format_content = abcc_create_blocks($content_array);
 		$post_content   = abcc_gutenberg_blocks($format_content);
 
-		$is_draft_first    = abcc_get_setting('abcc_draft_first', true);
-		$is_random_publish = abcc_get_setting('abcc_random_publish', false);
+		$is_draft_first = abcc_get_setting('abcc_draft_first', true);
 
 		// 质量闸门：查重 + 评分，决定是否入库/是否强制草稿。
 		$quality_evaluation = null;
@@ -195,7 +194,7 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 		$post_data = array(
 			'post_title'    => $title,
 			'post_content'  => wp_kses_post($post_content),
-			'post_status'   => ($is_draft_first || $is_random_publish) ? 'draft' : 'publish',
+			'post_status'   => $is_draft_first ? 'draft' : 'publish',
 			'post_author'   => get_current_user_id(),
 			'post_type'     => $post_type,
 			'post_category' => $category_id ? array($category_id) : get_option('openai_selected_categories', array()),
@@ -221,11 +220,6 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 		// 入库成功后写入质量评分 meta（便于审计和列表页显示）。
 		if ($quality_evaluation && function_exists('abcc_quality_attach_meta')) {
 			abcc_quality_attach_meta($post_id, $quality_evaluation, $title, $post_content);
-		}
-
-		// Schedule random-time publishing if enabled (and not in review-first mode).
-		if (! $is_draft_first && $is_random_publish) {
-			abcc_schedule_random_publish($post_id);
 		}
 
 		if (abcc_get_setting('openai_generate_images', true)) {

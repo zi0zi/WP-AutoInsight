@@ -1023,14 +1023,51 @@ function abcc_build_source_prompt($items, $tone = 'professional', $template = ''
 }
 
 /**
+ * 给一条 item 补齐正文和配图（原地 enrich），用于 rss/news_search/trending 等需要去原文页再抓一次的来源。
+ *
+ * @param array $item 单条素材，需要有 link 字段。
+ * @return array       enrich 后的 item（至少包含 images 键，可能为空数组）。
+ */
+function abcc_enrich_source_item_with_article($item)
+{
+	if (! isset($item['images']) || ! is_array($item['images'])) {
+		$item['images'] = array();
+	}
+	if (empty($item['link'])) {
+		return $item;
+	}
+
+	$article = abcc_fetch_webpage_article_cached($item['link']);
+	if (is_wp_error($article) || ! is_array($article)) {
+		return $item;
+	}
+
+	$full = isset($article['text']) ? (string) $article['text'] : '';
+	if ('' !== $full) {
+		$current_len = mb_strlen((string) ($item['content'] ?? $item['description'] ?? ''));
+		if (mb_strlen($full) > $current_len) {
+			// 截断到 8000 字符，既保证够 AI 洗稿又不爆 token 预算。
+			$item['content']     = mb_substr($full, 0, 8000);
+			$item['description'] = mb_substr($full, 0, 500);
+		}
+	}
+	if (! empty($article['images']) && is_array($article['images'])) {
+		// 原文页抓到的图通常是正文插图，排前面；合并 RSS enclosures/trending 自带图。
+		$item['images'] = array_values(array_unique(array_merge(
+			$article['images'],
+			$item['images']
+		)));
+	}
+
+	return $item;
+}
+
+/**
  * 从候选素材池中挑选一条作为本次洗稿的主素材。
  *
- * 原先把整个 items 列表（RSS 5 条 / 新闻 8 条 / 热点 10 条）一股脑丢给 AI 让它"综合撰写"，
- * 结果就是几个毫不相关主题被硬融成一篇乱炖。改成：
- *  - 取第一条（已经按相关性/时间/权重排序）
- *  - 对 RSS / 新闻搜索条目，额外去原文 link 抓一次正文，RSS description/content
- *    通常只是几百字的摘要，拿到完整正文才能做真正的洗稿
- *  - trending/ai_search/webpage 保持原样
+ * 策略：按顺序遍历 items，为每条 item 抓原文正文 + 图片，**优先挑选有可用图片的条目**。
+ * 这样热点/RSS/新闻搜索中那些没配图的条目不会被选中，保证最终发布文章都带图片。
+ * 若所有候选都没图，仍按顺序退回首条（让 AI 生图逻辑接手）。
  *
  * @param array $items  候选素材数组。
  * @param array $source 来源配置（用于判断 type）。
@@ -1042,36 +1079,32 @@ function abcc_pick_primary_source_item($items, $source)
 		return new WP_Error('no_items', __('未获取到素材。', 'automated-blog-content-creator'));
 	}
 
-	$primary = $items[0];
-	$type    = $source['type'] ?? 'rss';
+	$type              = $source['type'] ?? 'rss';
+	$needs_article_fetch = in_array($type, array('rss', 'news_search', 'trending'), true);
 
-	if (! isset($primary['images']) || ! is_array($primary['images'])) {
-		$primary['images'] = array();
-	}
+	$first_enriched = null;
 
-	if (in_array($type, array('rss', 'news_search'), true) && ! empty($primary['link'])) {
-		$article = abcc_fetch_webpage_article_cached($primary['link']);
-		if (! is_wp_error($article) && is_array($article)) {
-			$full = isset($article['text']) ? (string) $article['text'] : '';
-			if ('' !== $full) {
-				$current_len = mb_strlen((string) ($primary['content'] ?? $primary['description'] ?? ''));
-				if (mb_strlen($full) > $current_len) {
-					// 截断到 8000 字符，既保证够 AI 洗稿又不爆 token 预算。
-					$primary['content']     = mb_substr($full, 0, 8000);
-					$primary['description'] = mb_substr($full, 0, 500);
-				}
-			}
-			if (! empty($article['images']) && is_array($article['images'])) {
-				// 合并 RSS enclosures 图片 + 原文页抓到的图片，原文页抓到的通常是正文插图，优先。
-				$primary['images'] = array_values(array_unique(array_merge(
-					$article['images'],
-					$primary['images']
-				)));
-			}
+	foreach ($items as $idx => $candidate) {
+		if (! isset($candidate['images']) || ! is_array($candidate['images'])) {
+			$candidate['images'] = array();
+		}
+
+		if ($needs_article_fetch) {
+			$candidate = abcc_enrich_source_item_with_article($candidate);
+		}
+
+		// 第一条若没图也先记下，作为兜底 fallback。
+		if (null === $first_enriched) {
+			$first_enriched = $candidate;
+		}
+
+		if (! empty($candidate['images'])) {
+			return $candidate;
 		}
 	}
 
-	return $primary;
+	// 所有候选都没图 —— 退回第一条，让 AI 生成特色图。
+	return $first_enriched;
 }
 
 /**
@@ -1291,8 +1324,7 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	$format_content = abcc_create_blocks($content_array);
 	$post_content   = abcc_gutenberg_blocks($format_content);
 
-	$is_draft_first    = abcc_get_setting('abcc_draft_first', true);
-	$is_random_publish = abcc_get_setting('abcc_random_publish', false);
+	$is_draft_first = abcc_get_setting('abcc_draft_first', true);
 
 	// 质量闸门：查重 + 评分。关键词只取主素材的标题，不混入其他候选。
 	$quality_evaluation = null;
@@ -1310,7 +1342,7 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	$post_data = array(
 		'post_title'    => $title,
 		'post_content'  => wp_kses_post($post_content),
-		'post_status'   => ($is_draft_first || $is_random_publish) ? 'draft' : 'publish',
+		'post_status'   => $is_draft_first ? 'draft' : 'publish',
 		'post_author'   => get_current_user_id() ?: 1,
 		'post_type'     => $post_type,
 		'post_category' => $category ? array($category) : array(),
@@ -1353,11 +1385,6 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	// 标记采集 items 为已使用：只标记本次真正用掉的主素材，其余候选保留下次可用。
 	if (abcc_get_setting('abcc_source_dedupe_enabled', true)) {
 		abcc_source_mark_item_used(abcc_source_item_fingerprint($primary_item));
-	}
-
-	// Schedule random-time publishing if enabled (and not in review-first mode).
-	if (! $is_draft_first && $is_random_publish) {
-		abcc_schedule_random_publish($post_id);
 	}
 
 	// 优先使用原文带的图片：第一张做特色图，后续 2 张插入正文。
