@@ -3,7 +3,7 @@
 /**
  * Plugin Name:       WP-AutoInsight
  * Description:       使用 OpenAI / Gemini / Claude / Perplexity 自动生成中文博客文章，支持热点采集、品牌推广、内容查重与质量闸门。
- * Version:           4.3.0
+ * Version:           4.3.1
  * Text Domain:       automated-blog-content-creator
  * Domain Path:       /languages
  * Requires at least: 6.8
@@ -37,7 +37,7 @@ if (! function_exists('mb_strpos')) {
 }
 
 // Define plugin version.
-define('ABCC_VERSION', '4.3.0');
+define('ABCC_VERSION', '4.3.1');
 
 // Format requirements appended to every AI content generation prompt.
 // Defined here so they are enforced regardless of which template is active.
