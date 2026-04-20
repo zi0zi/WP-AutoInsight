@@ -1292,14 +1292,34 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	$title_prompt  = '根据以下内容，生成一个有吸引力的中文博客文章标题：' . mb_substr($primary_item['title'] . ' ' . ($primary_item['description'] ?? ''), 0, 200) . "\n";
 	$title_prompt .= '重要：请只输出标题本身，不要包含任何解释、前缀、问候语、编号或其他多余内容。直接输出标题文字即可。';
 	// 推理型模型（o-series / gpt-5 / sonar-reasoning / gemini thinking）会在 reasoning 阶段消耗
-	// 大量 token；50 token 极易在输出前就被吃光。Perplexity sonar 系列至少要 200 才能稳定返回。
-	$title_result  = abcc_generate_content($api_key, $title_prompt, $model, 200);
+	// 大量 token；低预算极易在输出前就被吃光。Perplexity sonar 至少 400 才能稳定返回。
+	$title_tokens = 200;
+	if (0 === strpos((string) $model, 'sonar')) {
+		$title_tokens = 400;
+	}
+	$title_result = abcc_generate_content($api_key, $title_prompt, $model, $title_tokens);
 
-	if (false === $title_result || empty($title_result)) {
-		return new WP_Error('title_failed', __('标题生成失败（AI 服务未返回内容，请检查 API 密钥与模型配额）。', 'automated-blog-content-creator'));
+	$title = '';
+	if (false !== $title_result && ! empty($title_result)) {
+		$title = abcc_sanitize_ai_title($title_result);
 	}
 
-	$title = abcc_sanitize_ai_title($title_result);
+	// AI 失败或洗完是空串：直接用源条目的原标题兜底，别整篇中断。
+	if ('' === $title) {
+		$fallback_title = isset($primary_item['title']) ? trim((string) $primary_item['title']) : '';
+		if ('' === $fallback_title) {
+			return new WP_Error(
+				'title_failed',
+				__('标题生成失败（AI 未返回内容且源条目缺少标题）。请检查 API 密钥、模型配额或内容来源。', 'automated-blog-content-creator')
+			);
+		}
+		error_log(sprintf(
+			'[WP-AutoInsight] abcc_generate_post_from_source: AI title empty from model "%s"; falling back to source title "%s".',
+			$model,
+			$fallback_title
+		));
+		$title = $fallback_title;
+	}
 
 	// Generate content.
 	$content_array = abcc_generate_content($api_key, $prompt, $model, max($char_limit, 800));
