@@ -1291,10 +1291,12 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	// Generate title first — 和正文一致，基于主素材生成，避免标题跨主题。
 	$title_prompt  = '根据以下内容，生成一个有吸引力的中文博客文章标题：' . mb_substr($primary_item['title'] . ' ' . ($primary_item['description'] ?? ''), 0, 200) . "\n";
 	$title_prompt .= '重要：请只输出标题本身，不要包含任何解释、前缀、问候语、编号或其他多余内容。直接输出标题文字即可。';
-	$title_result  = abcc_generate_content($api_key, $title_prompt, $model, 50);
+	// 推理型模型（o-series / gpt-5 / sonar-reasoning / gemini thinking）会在 reasoning 阶段消耗
+	// 大量 token；50 token 极易在输出前就被吃光。Perplexity sonar 系列至少要 200 才能稳定返回。
+	$title_result  = abcc_generate_content($api_key, $title_prompt, $model, 200);
 
 	if (false === $title_result || empty($title_result)) {
-		return new WP_Error('title_failed', __('标题生成失败。', 'automated-blog-content-creator'));
+		return new WP_Error('title_failed', __('标题生成失败（AI 服务未返回内容，请检查 API 密钥与模型配额）。', 'automated-blog-content-creator'));
 	}
 
 	$title = abcc_sanitize_ai_title($title_result);
