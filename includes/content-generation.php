@@ -267,6 +267,30 @@ function abcc_openai_generate_post($api_key, $keywords, $prompt_select, $tone = 
 
 
 /**
+ * 记录/读取最后一次 AI 调用的失败原因，方便上层把真实错误回显给用户。
+ *
+ * 之前各 provider 拿到 API 错误只是 error_log 了一下就 return false，
+ * 上层只能笼统报"生成失败"，对排查毫无帮助。用一个 static 捕获最后
+ * 一条错误消息，让 content-sources 在 WP_Error 里带出去。
+ *
+ * @param string|null $message 传字符串=记录；传 null=读取并清空。
+ * @return string
+ */
+function abcc_last_ai_error($message = null)
+{
+	static $last = '';
+
+	if (null === $message) {
+		$value = $last;
+		$last  = '';
+		return $value;
+	}
+
+	$last = (string) $message;
+	return $last;
+}
+
+/**
  * Helper function to generate content using selected AI service.
  *
  * @param string $api_key API key
@@ -283,8 +307,12 @@ function abcc_generate_content($api_key, $prompt, $service, $char_limit)
 	$callback = abcc_get_provider_text_generation_callback($provider);
 
 	if (empty($callback) || ! is_callable($callback)) {
+		abcc_last_ai_error(sprintf('provider "%s" 缺少可用的文本生成回调（模型名是否拼错？）', $provider));
 		return $result;
 	}
+
+	// 清掉旧的，保证这次调用拿到的 last_error 是本次的。
+	abcc_last_ai_error('');
 
 	$response = call_user_func($callback, $api_key, $prompt, $char_limit, $service);
 

@@ -1306,16 +1306,22 @@ function abcc_generate_post_from_source($source_index, $options = array())
 
 	// AI 失败或洗完是空串：直接用源条目的原标题兜底，别整篇中断。
 	if ('' === $title) {
+		$title_error = function_exists('abcc_last_ai_error') ? abcc_last_ai_error() : '';
 		$fallback_title = isset($primary_item['title']) ? trim((string) $primary_item['title']) : '';
 		if ('' === $fallback_title) {
 			return new WP_Error(
 				'title_failed',
-				__('标题生成失败（AI 未返回内容且源条目缺少标题）。请检查 API 密钥、模型配额或内容来源。', 'automated-blog-content-creator')
+				sprintf(
+					/* translators: %s is the raw provider error message. */
+					__('标题生成失败（源条目缺少标题且 AI 返回空）。底层错误：%s', 'automated-blog-content-creator'),
+					'' !== $title_error ? $title_error : __('未知错误', 'automated-blog-content-creator')
+				)
 			);
 		}
 		error_log(sprintf(
-			'[WP-AutoInsight] abcc_generate_post_from_source: AI title empty from model "%s"; falling back to source title "%s".',
+			'[WP-AutoInsight] abcc_generate_post_from_source: AI title empty from model "%s" (%s); falling back to source title "%s".',
 			$model,
+			'' !== $title_error ? $title_error : 'no detail',
 			$fallback_title
 		));
 		$title = $fallback_title;
@@ -1324,7 +1330,15 @@ function abcc_generate_post_from_source($source_index, $options = array())
 	// Generate content.
 	$content_array = abcc_generate_content($api_key, $prompt, $model, max($char_limit, 800));
 	if (false === $content_array || empty($content_array)) {
-		return new WP_Error('content_failed', __('内容生成失败。', 'automated-blog-content-creator'));
+		$content_error = function_exists('abcc_last_ai_error') ? abcc_last_ai_error() : '';
+		return new WP_Error(
+			'content_failed',
+			sprintf(
+				/* translators: %s is the raw provider error message. */
+				__('内容生成失败。底层错误：%s', 'automated-blog-content-creator'),
+				'' !== $content_error ? $content_error : __('未知错误（请开启 WP_DEBUG_LOG 查看 wp-content/debug.log）', 'automated-blog-content-creator')
+			)
+		);
 	}
 
 	$content_array = array_filter(

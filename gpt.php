@@ -65,7 +65,11 @@ function abcc_claude_generate_text( $api_key, $prompt, $requested_tokens, $model
 	);
 
 	if ( is_wp_error( $response ) ) {
-		error_log( 'Claude API Error: ' . $response->get_error_message() );
+		$msg = 'Claude API Error: ' . $response->get_error_message();
+		error_log( $msg );
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			abcc_last_ai_error( $msg );
+		}
 		return false;
 	}
 
@@ -74,6 +78,10 @@ function abcc_claude_generate_text( $api_key, $prompt, $requested_tokens, $model
 
 	if ( ! isset( $data['content'][0]['text'] ) ) {
 		error_log( 'Unexpected Claude response structure: ' . print_r( $data, true ) );
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			$api_msg = isset( $data['error']['message'] ) ? $data['error']['message'] : 'response 缺少 content.text';
+			abcc_last_ai_error( 'Claude: ' . $api_msg );
+		}
 		return false;
 	}
 
@@ -127,6 +135,9 @@ function abcc_gemini_generate_text( $api_key, $prompt, $requested_tokens, $model
 		return $text_array;
 	} catch ( \Exception $e ) {
 		error_log( 'Gemini API Error: ' . $e->getMessage() );
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			abcc_last_ai_error( 'Gemini: ' . $e->getMessage() );
+		}
 		handle_api_request_error( $e->getMessage(), 'Gemini' );
 		return false;
 	}
@@ -161,16 +172,32 @@ function abcc_openai_generate_text( $api_key, $prompt, $requested_tokens, $model
 	$response = $client->create_chat_completion( $messages, $options );
 
 	if ( is_wp_error( $response ) ) {
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			abcc_last_ai_error( 'OpenAI: ' . $response->get_error_message() );
+		}
 		handle_api_request_error( $response, 'OpenAI' );
 		return false;
 	}
 
 	if ( ! isset( $response['choices'][0]['message']['content'] ) ) {
 		error_log( 'Unexpected OpenAI response structure: ' . print_r( $response, true ) );
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			$api_msg = isset( $response['error']['message'] ) ? $response['error']['message'] : 'response 缺少 choices[0].message.content';
+			abcc_last_ai_error( 'OpenAI: ' . $api_msg );
+		}
 		return false;
 	}
 
 	$text = $response['choices'][0]['message']['content'];
+	if ( '' === trim( (string) $text ) ) {
+		// 推理模型（gpt-5 / o-series）可能 finish_reason=length 被 reasoning 吃光预算，返回空 content。
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			$finish = isset( $response['choices'][0]['finish_reason'] ) ? $response['choices'][0]['finish_reason'] : 'unknown';
+			abcc_last_ai_error( sprintf( 'OpenAI: content 为空 (finish_reason=%s)，常见于推理模型 token 预算不足', $finish ) );
+		}
+		return false;
+	}
+
 	return explode( PHP_EOL, $text );
 }
 
@@ -219,14 +246,24 @@ function abcc_perplexity_generate_text( $api_key, $prompt, $requested_tokens, $m
 	);
 
 	if ( is_wp_error( $response ) ) {
-		error_log( 'Perplexity API Error: ' . $response->get_error_message() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		$msg = 'Perplexity API Error: ' . $response->get_error_message();
+		error_log( $msg ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			abcc_last_ai_error( $msg );
+		}
 		return false;
 	}
 
 	$response_code = wp_remote_retrieve_response_code( $response );
 	if ( 200 !== $response_code ) {
+		$raw = wp_remote_retrieve_body( $response );
 		error_log( 'Perplexity API Error: Response code ' . $response_code ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-		error_log( 'Response body: ' . wp_remote_retrieve_body( $response ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		error_log( 'Response body: ' . $raw ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			$err = json_decode( $raw, true );
+			$api = isset( $err['error']['message'] ) ? $err['error']['message'] : substr( (string) $raw, 0, 200 );
+			abcc_last_ai_error( sprintf( 'Perplexity HTTP %d: %s', $response_code, $api ) );
+		}
 		return false;
 	}
 
@@ -235,6 +272,9 @@ function abcc_perplexity_generate_text( $api_key, $prompt, $requested_tokens, $m
 
 	if ( ! isset( $data['choices'][0]['message']['content'] ) ) {
 		error_log( 'Unexpected Perplexity response structure: ' . print_r( $data, true ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log, WordPress.PHP.DevelopmentFunctions.error_log_print_r
+		if ( function_exists( 'abcc_last_ai_error' ) ) {
+			abcc_last_ai_error( 'Perplexity: response 缺少 choices[0].message.content' );
+		}
 		return false;
 	}
 
